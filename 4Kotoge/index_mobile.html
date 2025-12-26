@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>4Lane Rhythm - Data Pro Mobile</title>
+    <title>4Lane Rhythm - Solid Engine Pro V18</title>
     <style>
         :root { 
             --accent: #00ffff; 
             --p-deep: linear-gradient(135deg, #ff0000, #ff00ff, #0000ff); 
             --p-pale: linear-gradient(135deg, #ffffff, #a0e0ff, #ffffff);
             --great: #ff69b4; --good: #4caf50; --miss: #808080; --fast: #0000ff; --late: #ff0000; 
-            --note-red: #ff7f7f;  
-            --note-blue: #7fbfff; 
+            --note-red: #ff7f7f; --note-blue: #7fbfff; 
         }
         body { 
             background: #000; margin: 0; overflow: hidden; 
@@ -28,11 +27,10 @@
         
         #game-container { width: 100%; height: 100%; display: flex; position: relative; max-width: 500px; border-left: 5px solid #333; border-right: 5px solid #333; margin: 0 auto; }
         .lane { flex: 1; border-right: 3px solid #222; position: relative; z-index: 5; }
-        .target-mark { position: absolute; bottom: 85px; width: 84%; left: 8%; height: 45px; border: 2px solid #444; border-radius: 8px; pointer-events: none; transition: background 0.05s; }
-        .lane:active .target-mark { background: rgba(0, 255, 255, 0.2); }
+        .target-mark { position: absolute; bottom: 85px; width: 84%; left: 8%; height: 45px; border: 2px solid #444; border-radius: 8px; pointer-events: none; }
         
-        .note { position: absolute; width: 92%; left: 4%; height: 18px; border-radius: 3px; pointer-events: none; will-change: transform; top: 0; border: 1px solid rgba(255,255,255,0.2); z-index: 10; }
-        .bar-line { position: absolute; width: 100%; height: 4px; background: rgba(255,255,255,0.4); pointer-events: none; will-change: transform; top: 0; z-index: 2; }
+        .note { position: absolute; width: 92%; left: 4%; height: 18px; border-radius: 3px; pointer-events: none; will-change: transform; z-index: 10; border: 1px solid rgba(255,255,255,0.2); }
+        .bar-line { position: absolute; width: 100%; height: 4px; background: rgba(255,255,255,0.4); pointer-events: none; will-change: transform; z-index: 2; }
         
         .note-lane-0, .note-lane-3 { background: var(--note-red); }
         .note-lane-1, .note-lane-2 { background: var(--note-blue); }
@@ -46,7 +44,7 @@
 
         #graph-container { width: 100%; height: 60px; background: #000; margin: 15px 0; position: relative; border: 1px solid #555; overflow: hidden; }
         .graph-bar { position: absolute; width: 2px; height: 5px; pointer-events: none; }
-        .center-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffff00; opacity: 1; z-index: 5; }
+        .center-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffff00; z-index: 5; }
         .border-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #aaa; border-left: 1px dashed #888; z-index: 2; }
         .stat-line { display: flex; justify-content: space-between; margin: 2px 0; border-bottom: 1px solid #222; font-size: 0.85rem; padding-bottom: 2px; }
     </style>
@@ -56,39 +54,13 @@
 
     <div id="start-screen">
         <div class="menu-card">
-            <h2 style="color:var(--accent); margin:0 0 10px 0;">PRO TRAINING</h2>
-            <div class="setting-item">
-                <label>練習モード</label>
-                <select id="pattern-mode" onchange="save()">
-                    <option value="random">完全ランダム</option>
-                    <option value="stair">階段 (Stairs)</option>
-                    <option value="trill">トリル (Trills)</option>
-                    <option value="jack">縦連 (Jacks)</option>
-                    <option value="alt">交互押し (Alternating)</option>
-                </select>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="setting-item" style="flex:1;"><label>最大同時押し</label>
-                    <select id="multi-select" onchange="save()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                </div>
-                <div class="setting-item" style="flex:1;"><label>分割</label>
-                    <select id="rhythm-select" onchange="save()"><option value="32">32分</option><option value="24">24分</option><option value="16">16分</option><option value="12" selected>12分</option></select>
-                </div>
-            </div>
-            <div class="setting-item">
-                <label>落下速度: <span id="speed-val">14</span></label>
-                <input type="range" id="speed-slider" min="5" max="40" value="14">
-            </div>
-            <div class="setting-item">
-                <label>判定調整 (ms)</label>
-                <input type="number" id="offset-ms" value="0.0" step="0.1" onchange="save()">
-                <div style="font-size: 0.65rem; color: #aaa; margin-top: 4px;">※Fastなら値を減らす / Lateなら値を増やす</div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="setting-item" style="flex:1;"><label>BPM</label><input type="number" id="bpm-input" value="120" onchange="save()"></div>
-                <div class="setting-item" style="flex:1;"><label>秒数</label><input type="number" id="length-input" value="30" onchange="save()"></div>
-            </div>
-            <button onclick="preStart()">START</button>
+            <h2 style="color:var(--accent); margin:0 0 10px 0;">SOLID ENGINE V18</h2>
+            <div class="setting-item"><label>練習モード</label><select id="pattern-mode" onchange="save()"><option value="random">完全ランダム</option><option value="stair">階段</option><option value="trill">トリル</option><option value="jack">縦連</option><option value="alt">交互押し</option></select></div>
+            <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>最大同時押し</label><select id="multi-select" onchange="save()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div><div class="setting-item" style="flex:1;"><label>分割</label><select id="rhythm-select" onchange="save()"><option value="32">32分</option><option value="24">24分</option><option value="16">16分</option><option value="12" selected>12分</option></select></div></div>
+            <div class="setting-item"><label>落下速度: <span id="speed-val">14</span></label><input type="range" id="speed-slider" min="5" max="40" value="14"></div>
+            <div class="setting-item"><label>判定調整 (ms)</label><input type="number" id="offset-ms" value="0.0" step="0.1" onchange="save()"></div>
+            <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>BPM</label><input type="number" id="bpm-input" value="120" onchange="save()"></div><div class="setting-item" style="flex:1;"><label>秒数</label><input type="number" id="length-input" value="30" onchange="save()"></div></div>
+            <button onclick="preStart()">LOAD & START</button>
         </div>
     </div>
 
@@ -126,16 +98,15 @@
     </div>
 
     <script>
-        let speed, bpm, interval, spawnTimer, timer, isPlaying = false, isAP = true, isFC = true;
+        let speed, bpm, interval, isPlaying = false, isAP = true, isFC = true;
         let combo = 0, maxCombo = 0, score = 0, stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
-        let notes = [[], [], [], []], barLines = [];
+        let notesInLane = [[], [], [], []], allNotesSequence = [], barLinesSequence = [], startTime = 0;
         let pStep = 0, pSubStep = 0, pLane = 0, pDirection = 1;
         const targetY = window.innerHeight - 105;
 
         const tapSound = new Audio('assets/tap.mp3');
         const tehonSound = new Audio('assets/tehon.mp3');
         const tempoSound = new Audio('assets/tempo.mp3');
-        let soundTimeouts = [];
 
         const save = () => {
             const d = { 
@@ -147,11 +118,11 @@
                 rhythm: document.getElementById('rhythm-select').value, 
                 pattern: document.getElementById('pattern-mode').value 
             };
-            localStorage.setItem('rhythmPro', JSON.stringify(d));
+            localStorage.setItem('rhythmProV18', JSON.stringify(d));
         };
 
         const load = () => {
-            const s = JSON.parse(localStorage.getItem('rhythmPro') || '{}');
+            const s = JSON.parse(localStorage.getItem('rhythmProV18') || '{}');
             if(s.speed) {
                 document.getElementById('speed-slider').value = s.speed;
                 document.getElementById('offset-ms').value = s.offset;
@@ -163,15 +134,67 @@
                 document.getElementById('speed-val').innerText = s.speed;
             }
         };
-
         load();
         document.getElementById('speed-slider').oninput = function() { document.getElementById('speed-val').innerText = this.value; save(); };
+		function createSequence() {
+            allNotesSequence = [];
+            barLinesSequence = [];
+            const mode = document.getElementById('pattern-mode').value;
+            const maxMulti = parseInt(document.getElementById('multi-select').value);
+            const totalSec = parseInt(document.getElementById('length-input').value);
+            const rDiv = parseInt(document.getElementById('rhythm-select').value);
+            bpm = parseInt(document.getElementById('bpm-input').value);
+            interval = (60 / bpm / (rDiv / 4)) * 1000;
+            
+			// 2000ms（2秒）の余白を持たせることで、ノーツが上から降ってくる過程が見えるようにするよ。
+            let currentTime = 2000; 
+            pStep = 0; pSubStep = 0; pLane = 0; pDirection = 1;
+
+            // 終了判定も開始時間をずらした分だけ延長するよ。
+            while(currentTime < (totalSec * 1000) + 2000) {
+                // 小節線のデータ作成
+                if (pStep % rDiv === 0) {
+                    barLinesSequence.push({ time: currentTime, spawned: false });
+                }
+
+                // ノーツのパターン生成
+                let lanes = [];
+                if(mode === 'random') {
+                    let count = Math.floor(Math.random() * maxMulti) + 1;
+                    lanes = [0,1,2,3].sort(() => Math.random()-0.5).slice(0, count);
+                } else if(mode === 'stair') {
+                    for(let i=0; i<maxMulti; i++) lanes.push((pLane + i) % 4);
+                    pLane += pDirection;
+                    if(pLane > 4 - maxMulti) { pLane = 4 - maxMulti - 1; pDirection = -1; }
+                    else if(pLane < 0) { pLane = 1; pDirection = 1; }
+                } else if(mode === 'trill') {
+                    if(pStep % 8 === 0) pLane = Math.floor(Math.random() * 2);
+                    let side = (pStep % 2 === 0) ? [pLane] : [pLane + 2];
+                    for(let i=0; i<maxMulti; i++) lanes.push((side[0] + i) % 4);
+                } else if(mode === 'jack') {
+                    if(pSubStep <= 0) { pSubStep = Math.floor(Math.random() * 3) + 2; pLane = Math.floor(Math.random() * (5-maxMulti)); }
+                    for(let i=0; i<maxMulti; i++) lanes.push(pLane + i);
+                    pSubStep--;
+                } else if(mode === 'alt') {
+                    let pairs = [[0,3], [1,2], [0,1], [2,3]];
+                    if(pStep % 8 === 0) pSubStep = Math.floor(Math.random() * pairs.length);
+                    let base = (pStep % 2 === 0) ? pairs[pSubStep][0] : pairs[pSubStep][1];
+                    for(let i=0; i<maxMulti; i++) lanes.push((base + i) % 4);
+                }
+
+                lanes.forEach(l => {
+                    allNotesSequence.push({ time: currentTime, lane: l, spawned: false, judged: false });
+                });
+
+                currentTime += interval;
+                pStep++;
+            }
+        }
 
         function preStart() {
-            if(isPlaying) return; 
-            save();
+            if(isPlaying) return; save();
+            createSequence();
             [tapSound, tehonSound, tempoSound].forEach(s => { s.play().then(()=>s.pause()); s.currentTime = 0; });
-            
             document.getElementById('start-screen').style.display = 'none';
             const ce = document.getElementById('countdown'); ce.style.display = 'block';
             let c = 3; 
@@ -182,125 +205,93 @@
         }
 
         function startGame() {
-            isPlaying = true; pStep = 0; pSubStep = 0; pDirection = 1; pLane = 0; combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
+            isPlaying = true;
+            notesInLane = [[], [], [], []];
+            combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
             stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
-            notes = [[], [], [], []]; barLines = []; soundTimeouts = [];
-            
             speed = parseInt(document.getElementById('speed-slider').value);
-            bpm = parseInt(document.getElementById('bpm-input').value);
-            const rDiv = parseInt(document.getElementById('rhythm-select').value);
-            interval = (60 / bpm / (rDiv / 4)) * 1000;
-            const fallDuration = (targetY - (-20)) / (speed * 60) * 1000;
-
             document.getElementById('game-screen').style.display = 'flex';
+            startTime = performance.now();
+            
             let rem = parseInt(document.getElementById('length-input').value);
             const ti = setInterval(() => { 
                 if(!isPlaying) { clearInterval(ti); return; } 
                 if(--rem <= 0) { clearInterval(ti); endGame(); } 
                 document.getElementById('time-left').innerText = `TIME: ${rem}s`; 
             }, 1000);
-
-            spawnTimer = setInterval(() => {
-                const now = performance.now();
-                
-                // 【復元】小節線とテンポ音の同期
-                if (pStep % rDiv === 0) {
-                    const st = setTimeout(() => { if(isPlaying) tempoSound.cloneNode().play(); }, fallDuration);
-                    soundTimeouts.push(st);
-                    const bl = document.createElement('div');
-                    bl.className = 'bar-line';
-                    document.getElementById('game-container').appendChild(bl);
-                    barLines.push({ el: bl, targetTime: now + fallDuration });
-                }
-
-                // 【復元】手本音（Tehon）
-                const tehonSt = setTimeout(() => { if(isPlaying) tehonSound.cloneNode().play().catch(()=>{}); }, fallDuration);
-                soundTimeouts.push(tehonSt);
-
-                // ノーツ生成
-                spawnPattern(now, fallDuration);
-                pStep++;
-            }, interval);
-
-            update();
+            requestAnimationFrame(update);
         }
 
-        function spawnPattern(now, fallDuration) {
-            const mode = document.getElementById('pattern-mode').value;
-            const maxMulti = parseInt(document.getElementById('multi-select').value);
-            let lanes = [];
-
-            if(mode === 'random') {
-                let count = Math.floor(Math.random() * maxMulti) + 1;
-                lanes = [0,1,2,3].sort(() => Math.random()-0.5).slice(0, count);
-            } else if(mode === 'stair') {
-                for(let i=0; i<maxMulti; i++) lanes.push((pLane + i) % 4);
-                pLane += pDirection;
-                if(pLane > 4 - maxMulti) { pLane = 4 - maxMulti - 1; pDirection = -1; }
-                else if(pLane < 0) { pLane = 1; pDirection = 1; }
-            } else if(mode === 'trill') {
-                if(pStep % 8 === 0) pLane = Math.floor(Math.random() * 2);
-                let side = (pStep % 2 === 0) ? [pLane] : [pLane + 2];
-                for(let i=0; i<maxMulti; i++) lanes.push((side[0] + i) % 4);
-            } else if(mode === 'jack') {
-                if(pSubStep <= 0) { pSubStep = Math.floor(Math.random() * 3) + 2; pLane = Math.floor(Math.random() * (5-maxMulti)); }
-                for(let i=0; i<maxMulti; i++) lanes.push(pLane + i);
-                pSubStep--;
-            } else if(mode === 'alt') {
-                let pairs = [[0,3], [1,2], [0,1], [2,3]];
-                if(pStep % 8 === 0) pSubStep = Math.floor(Math.random() * pairs.length);
-                let base = (pStep % 2 === 0) ? pairs[pSubStep][0] : pairs[pSubStep][1];
-                for(let i=0; i<maxMulti; i++) lanes.push((base + i) % 4);
-            }
-
-            lanes.forEach(l => {
-                const el = document.createElement('div');
-                el.className = `note ${(l % 2 === 0) ? 'note-lane-0' : 'note-lane-1'}`;
-                document.getElementById(`lane-${l}`).appendChild(el);
-                notes[l].push({ el, targetTime: now + fallDuration });
-            });
-        }
-
-        function update() {
+        function update(now) {
             if(!isPlaying) return;
-            const now = performance.now();
+            const elapsed = now - startTime;
             const offsetMs = parseFloat(document.getElementById('offset-ms').value);
-            
-            // 小節線の移動
-            for (let i = barLines.length - 1; i >= 0; i--) {
-                const b = barLines[i];
-                const diff = b.targetTime - (now - offsetMs);
-                const y = targetY - (diff * (speed * 60) / 1000);
-                b.el.style.transform = `translate3d(0, ${y}px, 0)`;
-                if(diff < -200) { b.el.remove(); barLines.splice(i, 1); }
-            }
+            const fallDuration = 1000; 
 
-            // ノーツの移動
-            notes.forEach(lane => {
+            // 小節線の生成と移動
+            barLinesSequence.forEach(b => {
+                if(!b.spawned && b.time <= elapsed + fallDuration) {
+                    const el = document.createElement('div');
+                    el.className = 'bar-line';
+                    document.getElementById('game-container').appendChild(el);
+                    b.el = el; b.spawned = true;
+                    // 小節線に合わせたテンポ音
+                    const tempoDelay = b.time - elapsed;
+					setTimeout(() => { if(isPlaying) tempoSound.cloneNode().play(); }, Math.max(0, tempoDelay));
+                }
+                if(b.spawned && b.el) {
+                    const diff = b.time - (elapsed - offsetMs);
+                    const y = targetY - (diff * (speed * 60) / 1000);
+                    b.el.style.transform = `translate3d(0, ${y}px, 0)`;
+                    if(diff < -200) { b.el.remove(); b.el = null; }
+                }
+            });
+
+            // ノーツの生成
+            allNotesSequence.forEach(n => {
+                if(!n.spawned && n.time <= elapsed + fallDuration) {
+                    const el = document.createElement('div');
+                    el.className = `note ${(n.lane % 2 === 0) ? 'note-lane-0' : 'note-lane-1'}`;
+                    document.getElementById(`lane-${n.lane}`).appendChild(el);
+                    n.el = el; n.spawned = true;
+                    notesInLane[n.lane].push(n);
+                    // 手本音
+                    const tehonDelay = n.time - elapsed;
+					setTimeout(() => { if(isPlaying) tehonSound.cloneNode().play().catch(()=>{}); }, Math.max(0, tehonDelay));
+                }
+            });
+
+            // ノーツの移動とミス判定
+            notesInLane.forEach(lane => {
                 for (let i = lane.length - 1; i >= 0; i--) {
                     const n = lane[i];
-                    const timeDiff = n.targetTime - (now - offsetMs);
-                    const y = targetY - (timeDiff * (speed * 60) / 1000);
+                    if(n.judged) continue;
+                    const diff = n.time - (elapsed - offsetMs);
+                    const y = targetY - (diff * (speed * 60) / 1000);
                     n.el.style.transform = `translate3d(0, ${y}px, 0)`;
-                    if(timeDiff < -150) { 
-                        combo = 0; isAP = isFC = false; stats.miss++; 
-                        setUI("MISS", "miss-text", "", ""); 
-                        n.el.remove(); lane.splice(i,1); 
+                    if(diff < -150) {
+                        n.judged = true; combo = 0; isAP = isFC = false; stats.miss++;
+                        setUI("MISS", "miss-text", "", "");
+                        n.el.remove(); lane.splice(i, 1);
                     }
                 }
             });
-            timer = requestAnimationFrame(update);
+            requestAnimationFrame(update);
         }
 
         function judge(l) {
             if(!isPlaying) return;
             tapSound.cloneNode().play().catch(()=>{});
-            const ln = notes[l]; if(!ln.length) return;
-            const n = ln[0];
-            const diff = n.targetTime - (performance.now() - parseFloat(document.getElementById('offset-ms').value));
+            const now = performance.now() - startTime;
+            const offsetMs = parseFloat(document.getElementById('offset-ms').value);
+            const lane = notesInLane[l];
+            if(!lane.length) return;
+
+            const n = lane[0];
+            const diff = n.time - (now - offsetMs);
             const abs = Math.abs(diff);
 
-            if(abs < 150) { 
+            if(abs < 150) {
                 let r = "PERFECT", cls = "";
                 if(abs < 20) { cls = "p-deep-text"; stats.deepP++; }
                 else if(abs < 45) { cls = "p-pale-text"; stats.paleP++; }
@@ -312,7 +303,7 @@
                 score += (abs < 20 ? 1000 : (abs < 45 ? 900 : 500)); 
                 combo++; maxCombo = Math.max(maxCombo, combo);
                 setUI(r, cls, diff > 5 ? "FAST" : (diff < -5 ? "LATE" : ""), Math.abs(Math.round(diff)));
-                n.el.remove(); ln.shift();
+                n.judged = true; n.el.remove(); lane.shift();
             }
         }
 
@@ -326,11 +317,9 @@
         }
 
         function endGame() {
-            isPlaying = false; clearInterval(spawnTimer); cancelAnimationFrame(timer);
-            soundTimeouts.forEach(t => clearTimeout(t)); 
+            isPlaying = false;
             document.getElementById('game-screen').style.display = 'none';
             document.getElementById('result-screen').style.display = 'flex';
-            
             const total = stats.deepP + stats.paleP + stats.great + stats.good + stats.miss;
             const acc = total === 0 ? 0 : ((stats.deepP + stats.paleP + stats.great*0.5 + stats.good*0.2)/total*100).toFixed(2);
             
@@ -350,10 +339,8 @@
                 <div class="stat-line"><span class="p-pale-text">PERFECT (Pale)</span><span>${stats.paleP}</span></div>
                 <div class="stat-line"><span class="great-text">GREAT</span><span>${stats.great}</span></div>
                 <div class="stat-line"><span class="good-text">GOOD</span><span>${stats.good}</span></div>
-                <div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>
-            `;
+                <div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>`;
 
-            // 【復元】ドット散布図の完全ロジック
             const container = document.getElementById('graph-container');
             container.innerHTML = '<div class="center-line"></div>'; 
             const lLine = document.createElement('div'); lLine.className = 'border-line'; lLine.style.left = '25%'; container.appendChild(lLine);
@@ -372,13 +359,11 @@
                 container.appendChild(dot);
             });
 
-            // 判定推奨値
             const rawAvg = stats.diffs.length ? (stats.diffs.reduce((a,b)=>a+b,0) / stats.diffs.length) : 0;
             const validDiffs = stats.diffs.filter(d => Math.abs(d - rawAvg) < 100);
             const avg = validDiffs.length ? (validDiffs.reduce((a,b)=>a+b,0) / validDiffs.length) : 0;
             const currentOffset = parseFloat(document.getElementById('offset-ms').value) || 0;
-            const recommendedValue = currentOffset - avg;
-            document.getElementById('res-recommend').innerText = `ACC: ${acc}% | 推奨判定: ${recommendedValue.toFixed(1)}ms`;
+            document.getElementById('res-recommend').innerText = `ACC: ${acc}% | 推奨判定: ${(currentOffset - avg).toFixed(1)}ms`;
         }
 
         document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
