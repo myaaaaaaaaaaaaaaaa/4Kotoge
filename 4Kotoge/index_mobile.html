@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>4Lane Rhythm - iPad Pro Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>4Lane Rhythm - Solid Engine Pro V13</title>
     <style>
         :root { 
             --accent: #00ffff; 
@@ -13,31 +13,30 @@
         }
         body { 
             background: #000; margin: 0; overflow: hidden; 
-            /* システムのジェスチャーや選択をすべて無効化するよ */
+            /* touch-action: none がズーム防止と連打対応の決定版だよ */
             touch-action: none; 
             -webkit-user-select: none; 
             user-select: none;
             -webkit-touch-callout: none;
             font-family: 'Segoe UI', sans-serif; color: white; 
+            position: fixed; width: 100%; height: 100%;
         }
         #start-screen, #game-screen, #result-screen { width: 100vw; height: 100vh; position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #game-screen, #result-screen { display: none; background: #000; }
         .menu-card { background: #111; padding: 25px; border-radius: 15px; text-align: center; border: 1px solid #444; width: 420px; max-width: 90%; }
         .setting-item { margin: 8px 0; text-align: left; }
         label { font-size: 0.7rem; color: #888; display: block; }
-        /* iOSの自動ズームを防ぐため、入力欄は16px以上にするよ */
         select, input { width: 100%; box-sizing: border-box; padding: 8px; background: #222; color: white; border: 1px solid #555; border-radius: 4px; font-size: 16px; }
         button { padding: 15px; font-size: 1.1rem; cursor: pointer; background: var(--accent); border: none; border-radius: 5px; margin-top: 10px; font-weight: bold; color: #000; width: 100%; }
         
         #game-container { width: 100%; height: 100%; display: flex; position: relative; max-width: 500px; border-left: 2px solid #333; border-right: 2px solid #333; }
-        .lane { flex: 1; border-right: 1px solid #222; position: relative; cursor: pointer; z-index: 5; }
+        .lane { flex: 1; border-right: 1px solid #222; position: relative; z-index: 5; }
         .target-mark { position: absolute; bottom: 85px; width: 84%; left: 8%; height: 45px; border: 2px solid #444; border-radius: 8px; pointer-events: none; }
         
-        /* transform移動に変更するためtopは固定、will-changeで滑らかにするよ */
         .note { 
             position: absolute; width: 92%; left: 4%; height: 18px; 
             background: #fff; border-radius: 3px; pointer-events: none; 
-            top: 0; will-change: transform; 
+            will-change: transform; 
         }
         
         .p-deep-text { background: var(--p-deep); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
@@ -54,39 +53,17 @@
     </style>
 </head>
 <body>
-    <div id="countdown" style="position:absolute; font-size:8rem; font-weight:900; z-index:1000; display:none; color:var(--accent);"></div>
+    <div id="countdown" style="position:absolute; font-size:8rem; font-weight:900; z-index:1000; display:none; color:var(--accent); left:50%; top:50%; transform:translate(-50%,-50%);"></div>
 
     <div id="start-screen">
         <div class="menu-card">
-            <h2 style="color:var(--accent); margin:0 0 10px 0;">PRO TRAINING</h2>
-            <div class="setting-item">
-                <label>練習モード</label>
-                <select id="pattern-mode">
-                    <option value="random">完全ランダム</option>
-                    <option value="stair">階段 (Stairs)</option>
-                    <option value="trill">トリル (Trills)</option>
-                    <option value="jack">縦連 (Jacks)</option>
-                    <option value="alt">交互押し (Alternating)</option>
-                </select>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="setting-item" style="flex:1;"><label>最大同時押し</label>
-                    <select id="multi-select" onchange="save()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                </div>
-                <div class="setting-item" style="flex:1;"><label>分割</label>
-                    <select id="rhythm-select" onchange="save()"><option value="32">32分</option><option value="24">24分</option><option value="16">16分</option><option value="12" selected>12分</option></select>
-                </div>
-            </div>
-            <div class="setting-item">
-                <label>落下速度: <span id="speed-val">14</span></label>
-                <input type="range" id="speed-slider" min="5" max="30" value="14" tabindex="-1">
-            </div>
-            <div class="setting-item"><label>判定調整 (ms)</label><input type="number" id="offset-ms" value="50.0" step="0.1" onchange="save()"></div>
-            <div style="display:flex; gap:10px;">
-                <div class="setting-item" style="flex:1;"><label>BPM</label><input type="number" id="bpm-input" value="120" onchange="save()"></div>
-                <div class="setting-item" style="flex:1;"><label>秒数</label><input type="number" id="length-input" value="30" onchange="save()"></div>
-            </div>
-            <button onclick="preStart()">START</button>
+            <h2 style="color:var(--accent); margin:0 0 10px 0;">SOLID ENGINE PRO</h2>
+            <div class="setting-item"><label>練習モード</label><select id="pattern-mode"><option value="random">完全ランダム</option><option value="stair">階段</option><option value="trill">トリル</option><option value="jack">縦連</option><option value="alt">交互押し</option></select></div>
+            <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>最大同時押し</label><select id="multi-select" onchange="save()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div><div class="setting-item" style="flex:1;"><label>分割</label><select id="rhythm-select" onchange="save()"><option value="32">32分</option><option value="24">24分</option><option value="16">16分</option><option value="12" selected>12分</option></select></div></div>
+            <div class="setting-item"><label>落下速度: <span id="speed-val">14</span></label><input type="range" id="speed-slider" min="5" max="40" value="14" tabindex="-1"></div>
+            <div class="setting-item"><label>判定調整 (ms)</label><input type="number" id="offset-ms" value="0.0" step="0.1" onchange="save()"></div>
+            <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>BPM</label><input type="number" id="bpm-input" value="120" onchange="save()"></div><div class="setting-item" style="flex:1;"><label>秒数</label><input type="number" id="length-input" value="30" onchange="save()"></div></div>
+            <button onclick="preStart()">LOAD & START</button>
         </div>
     </div>
 
@@ -124,13 +101,12 @@
     </div>
 
     <script>
-        let speed, bpm, interval, spawnTimer, timer, isPlaying = false, isAP = true, isFC = true;
+        let speed, bpm, interval, isPlaying = false, isAP = true, isFC = true;
         let combo = 0, maxCombo = 0, score = 0, stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
-        let notes = [[], [], [], []], offsetPx = 0, pStep = 0, pSubStep = 0, pLane = 0, pDirection = 1;
+        let notesInLane = [[], [], [], []], allNotesSequence = [], startTime = 0;
+        let pStep = 0, pSubStep = 0, pLane = 0, pDirection = 1;
         const targetY = window.innerHeight - 105;
-        const tapSound = new Audio('assets/tap.mp3'), tehonSound = new Audio('assets/tehon.mp3');
-        let soundTimeouts = [];
-        let lastTimestamp = 0;
+        const tapSound = new Audio('assets/tap.mp3');
 
         const save = () => {
             const d = { 
@@ -142,11 +118,11 @@
                 rhythm: document.getElementById('rhythm-select').value, 
                 pattern: document.getElementById('pattern-mode').value 
             };
-            localStorage.setItem('rhythmProV11', JSON.stringify(d));
+            localStorage.setItem('rhythmProV13', JSON.stringify(d));
         };
 
         const load = () => {
-            const s = JSON.parse(localStorage.getItem('rhythmProV11') || '{}');
+            const s = JSON.parse(localStorage.getItem('rhythmProV13') || '{}');
             if(s.speed) {
                 document.getElementById('speed-slider').value = s.speed;
                 document.getElementById('offset-ms').value = s.offset;
@@ -158,42 +134,20 @@
                 document.getElementById('speed-val').innerText = s.speed;
             }
         };
-
         load();
         document.getElementById('speed-slider').oninput = function() { document.getElementById('speed-val').innerText = this.value; save(); };
 
-        function preStart() {
-            if(isPlaying) return; save();
-            // iPad/iOSの音声再生制限を解除するよ
-            const dummy = document.createElement('audio');
-            dummy.play().catch(()=>{});
-            
-            document.getElementById('start-screen').style.display = 'none';
-            const ce = document.getElementById('countdown'); ce.style.display = 'block';
-            let c = 3; const cd = setInterval(() => { ce.innerText = c > 0 ? c : "GO!"; if(c-- < 0) { clearInterval(cd); ce.style.display='none'; startGame(); } }, 500);
-        }
-
-        function startGame() {
-            isPlaying = true; pStep = 0; pSubStep = 0; pDirection = 1; pLane = 0; combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
-            stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
-            soundTimeouts = [];
-            lastTimestamp = performance.now();
-            speed = parseInt(document.getElementById('speed-slider').value);
-            bpm = parseInt(document.getElementById('bpm-input').value);
+        function createSequence() {
+            allNotesSequence = [];
             const mode = document.getElementById('pattern-mode').value;
             const maxMulti = parseInt(document.getElementById('multi-select').value);
+            const totalSec = parseInt(document.getElementById('length-input').value);
+            bpm = parseInt(document.getElementById('bpm-input').value);
             interval = (60 / bpm / (parseInt(document.getElementById('rhythm-select').value) / 4)) * 1000;
-            offsetPx = (parseFloat(document.getElementById('offset-ms').value) / (1000/60)) * speed;
-            const fallTime = (targetY - (-20)) / speed * (1000/60);
+            let currentTime = 0;
+            pStep = 0; pSubStep = 0; pLane = 0; pDirection = 1;
 
-            document.getElementById('game-screen').style.display = 'flex';
-            let rem = parseInt(document.getElementById('length-input').value);
-            const ti = setInterval(() => { if(!isPlaying) { clearInterval(ti); return; } if(--rem <= 0) { clearInterval(ti); endGame(); } document.getElementById('time-left').innerText = `TIME: ${rem}s`; }, 1000);
-
-            spawnTimer = setInterval(() => {
-                const st = setTimeout(() => { if(isPlaying) tehonSound.cloneNode().play().catch(()=>{}); }, fallTime);
-                soundTimeouts.push(st);
-
+            while(currentTime < totalSec * 1000) {
                 let lanes = [];
                 if(mode === 'random') {
                     let count = Math.floor(Math.random() * maxMulti) + 1;
@@ -217,40 +171,100 @@
                     let base = (pStep % 2 === 0) ? pairs[pSubStep][0] : pairs[pSubStep][1];
                     for(let i=0; i<maxMulti; i++) lanes.push((base + i) % 4);
                 }
-
                 lanes.forEach(l => {
-                    const el = document.createElement('div'); el.className = 'note';
-                    document.getElementById(`lane-${l}`).appendChild(el);
-                    notes[l].push({ el, y: -20 });
+                    allNotesSequence.push({ time: currentTime, lane: l, spawned: false, judged: false });
                 });
+                currentTime += interval;
                 pStep++;
-            }, interval);
-            update(performance.now());
+            }
+        }
+
+        function preStart() {
+            if(isPlaying) return; save();
+            createSequence();
+            const dummy = document.createElement('audio'); dummy.play().catch(()=>{});
+            document.getElementById('start-screen').style.display = 'none';
+            const ce = document.getElementById('countdown'); ce.style.display = 'block';
+            let c = 3; 
+            const cd = setInterval(() => { 
+                ce.innerText = c > 0 ? c : "GO!"; 
+                if(c-- < 0) { clearInterval(cd); ce.style.display='none'; startGame(); } 
+            }, 500);
+        }
+
+        function startGame() {
+            isPlaying = true;
+            notesInLane = [[], [], [], []];
+            combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
+            stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
+            speed = parseInt(document.getElementById('speed-slider').value);
+            document.getElementById('game-screen').style.display = 'flex';
+            startTime = performance.now();
+            let rem = parseInt(document.getElementById('length-input').value);
+            const ti = setInterval(() => { 
+                if(!isPlaying) { clearInterval(ti); return; } 
+                if(--rem <= 0) { clearInterval(ti); endGame(); } 
+                document.getElementById('time-left').innerText = `TIME: ${rem}s`; 
+            }, 1000);
+            requestAnimationFrame(update);
+        }
+
+        function update(now) {
+            if(!isPlaying) return;
+            const elapsed = now - startTime;
+            const fallDuration = 1000; 
+
+            allNotesSequence.forEach(n => {
+                if(!n.spawned && n.time <= elapsed + fallDuration) {
+                    const el = document.createElement('div');
+                    el.className = 'note';
+                    document.getElementById(`lane-${n.lane}`).appendChild(el);
+                    n.el = el; n.spawned = true;
+                    notesInLane[n.lane].push(n);
+                }
+            });
+
+            notesInLane.forEach(lane => {
+                for (let i = lane.length - 1; i >= 0; i--) {
+                    const n = lane[i];
+                    if(n.judged) continue;
+                    const timeDiff = n.time - elapsed;
+                    const y = targetY - (timeDiff * (speed / 10));
+                    n.el.style.transform = `translateY(${y}px)`;
+                    if(timeDiff < -150) {
+                        n.judged = true; combo = 0; isAP = isFC = false; stats.miss++;
+                        setUI("MISS", "miss-text", "", "");
+                        n.el.remove(); lane.splice(i, 1);
+                    }
+                }
+            });
+            requestAnimationFrame(update);
         }
 
         function judge(l) {
             if(!isPlaying) return;
             tapSound.cloneNode().play().catch(()=>{});
-            const ln = notes[l]; if(!ln.length) return;
-            const n = ln[0];
-            const adj = (targetY - n.y) - offsetPx;
-            const abs = Math.abs(adj);
-            const px = (ms) => (ms / (1000/60)) * speed;
+            const now = performance.now() - startTime;
+            const lane = notesInLane[l];
+            if(!lane.length) return;
 
-            if(abs < px(100)) {
+            const n = lane[0];
+            const diff = n.time - now;
+            const abs = Math.abs(diff);
+
+            if(abs < 150) {
                 let r = "PERFECT", cls = "";
-                if(abs < px(15)) { cls = "p-deep-text"; stats.deepP++; }
-                else if(abs < px(30)) { cls = "p-pale-text"; stats.paleP++; }
-                else if(abs < px(60)) { r = "GREAT"; cls = "great-text"; stats.great++; isAP = false; }
+                if(abs < 20) { cls = "p-deep-text"; stats.deepP++; }
+                else if(abs < 45) { cls = "p-pale-text"; stats.paleP++; }
+                else if(abs < 80) { r = "GREAT"; cls = "great-text"; stats.great++; isAP = false; }
                 else { r = "GOOD"; cls = "good-text"; stats.good++; isAP = isFC = false; }
                 
-                const err = adj/speed*(1000/60); stats.diffs.push(err);
-                if(adj > px(2)) stats.fast++; else if(adj < px(-2)) stats.late++;
-
-                score += (abs < px(15) ? 1000 : (abs < px(30) ? 900 : 500)); 
+                stats.diffs.push(diff);
+                if(diff > 5) stats.fast++; else if(diff < -5) stats.late++;
+                score += (abs < 20 ? 1000 : (abs < 45 ? 900 : 500)); 
                 combo++; maxCombo = Math.max(maxCombo, combo);
-                setUI(r, cls, adj > 0 ? "FAST" : "LATE", Math.abs(Math.round(err)));
-                n.el.remove(); ln.shift();
+                setUI(r, cls, diff > 0 ? "FAST" : "LATE", Math.abs(Math.round(diff)));
+                n.judged = true; n.el.remove(); lane.shift();
             }
         }
 
@@ -259,83 +273,38 @@
             f.innerText = txt; f.className = cls;
             c.innerText = combo;
             c.className = isAP ? "combo-ap" : (isFC ? "combo-fc" : "");
-            t.innerHTML = `<span class="${s.toLowerCase()}-text">${s}</span> ${ms}ms`;
+            t.innerHTML = s ? `<span class="${s.toLowerCase()}-text">${s}</span> ${ms}ms` : "";
             document.getElementById('score-val').innerText = score.toString().padStart(6,'0');
         }
 
-        function update(currentTimestamp) {
-            if(!isPlaying) return;
-            
-            // 時刻ベースの移動計算
-            const deltaTime = currentTimestamp - lastTimestamp;
-            lastTimestamp = currentTimestamp;
-            const moveStep = speed * (deltaTime / (1000/60));
-
-            notes.forEach(lane => {
-                for (let i = lane.length - 1; i >= 0; i--) {
-                    const n = lane[i];
-                    n.y += moveStep;
-                    // GPU加速のためにtransformを使用するよ
-                    n.el.style.transform = `translateY(${n.y}px)`;
-                    
-                    if(n.y > targetY + 100) {
-                        combo = 0; isAP = isFC = false; stats.miss++;
-                        setUI("MISS", "miss-text", "", "");
-                        n.el.remove();
-                        lane.splice(i, 1);
-                    }
-                }
-            });
-            timer = requestAnimationFrame(update);
-        }
-
         function endGame() {
-            isPlaying = false; clearInterval(spawnTimer); cancelAnimationFrame(timer);
-            soundTimeouts.forEach(t => clearTimeout(t)); 
+            isPlaying = false;
             document.getElementById('game-screen').style.display = 'none';
             document.getElementById('result-screen').style.display = 'flex';
-            
             const total = stats.deepP + stats.paleP + stats.great + stats.good + stats.miss;
             const acc = total === 0 ? 0 : ((stats.deepP + stats.paleP + stats.great*0.5 + stats.good*0.2)/total*100).toFixed(2);
-            
-            const statusEl = document.getElementById('res-status');
-            if(isAP && total > 0) { statusEl.innerText = "ALL PERFECT"; statusEl.className = "p-deep-text"; }
-            else if(isFC && total > 0) { statusEl.innerText = "FULL COMBO"; statusEl.className = "combo-fc"; }
-            else { statusEl.innerText = "CLEARED"; statusEl.className = ""; }
-
             document.getElementById('res-score').innerText = score.toString().padStart(6,'0');
             document.getElementById('res-rank').innerText = acc >= 99 ? "SSS" : (acc >= 95 ? "SS" : (acc >= 90 ? "S" : "A"));
-            document.getElementById('res-maxcombo').innerText = `MAX COMBO: ${maxCombo}`;
-            document.getElementById('res-fast').innerText = `FAST: ${stats.fast}`;
-            document.getElementById('res-late').innerText = `LATE: ${stats.late}`;
-            
             document.getElementById('res-stats').innerHTML = `
                 <div class="stat-line"><span class="p-deep-text">PERFECT (Deep)</span><span>${stats.deepP}</span></div>
                 <div class="stat-line"><span class="p-pale-text">PERFECT (Pale)</span><span>${stats.paleP}</span></div>
                 <div class="stat-line"><span class="great-text">GREAT</span><span>${stats.great}</span></div>
                 <div class="stat-line"><span class="good-text">GOOD</span><span>${stats.good}</span></div>
-                <div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>
-            `;
-
+                <div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>`;
             const container = document.getElementById('graph-container');
             container.querySelectorAll('.graph-bar').forEach(b => b.remove());
             stats.diffs.forEach(d => {
                 const bar = document.createElement('div'); bar.className = 'graph-bar';
-                bar.style.left = (50 + (d / 100 * 50)) + "%";
+                bar.style.left = (50 + (d / 150 * 50)) + "%";
                 container.appendChild(bar);
             });
-
-            const avg = stats.diffs.length ? (stats.diffs.reduce((a,b)=>a+b,0)/stats.diffs.length) : 0;
-            document.getElementById('res-recommend').innerText = `ACC: ${acc}% | 平均誤差: ${avg.toFixed(1)}ms`;
         }
 
-        // iPad/Safari特有の「ダブルタップズーム」をスクリプトでも徹底ガードするよ
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', (e) => {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 300) e.preventDefault();
-            lastTouchEnd = now;
-        }, false);
+        // --- ここが修正の核心だよ ---
+        // 二本指以上のピンチズームだけを防ぎ、単一タップの連打は一切邪魔しないよ
+        document.addEventListener('touchstart', (e) => { 
+            if (e.touches.length > 1) e.preventDefault(); 
+        }, { passive: false });
 
         window.addEventListener('keydown', e => {
             if(!isPlaying && e.key === 'Enter') preStart();
