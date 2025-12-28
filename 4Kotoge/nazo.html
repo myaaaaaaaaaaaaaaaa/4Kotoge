@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V32 Fixed - Absolute Base</title>
+    <title>V32 Fixed - Anti-Bias Logic</title>
     <style>
-        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { 
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none; 
+            user-select: none; 
+            -webkit-tap-highlight-color: transparent; 
+        }
         body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
         #game-area {
             position: relative; width: 100%; max-width: 600px; height: 100vh;
             margin: 0 auto; background: #030305; border-left: 2px solid #333; border-right: 2px solid #333;
+            box-sizing: border-box;
         }
         .judge-rail {
             position: absolute; width: 100%; height: 2px;
@@ -58,11 +64,12 @@
     const container = document.getElementById('notes-container');
     const comboEl = document.getElementById('combo');
     const judgeEl = document.getElementById('judge-text');
+    const gameArea = document.getElementById('game-area');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // デフォルトオフセットを120に固定
     let config = { bpm: 120, offset: 120, speed: 11, density: 1 };
-    
+    let lastLanes = []; // 直前に出現したレーンを記憶
+
     document.getElementById('inp-bpm').onchange = (e) => { config.bpm = Math.max(1, parseInt(e.target.value)); };
     document.getElementById('inp-den').onchange = (e) => { config.density = Math.max(1, Math.min(4, parseInt(e.target.value))); };
     document.getElementById('inp-off').onchange = (e) => { config.offset = parseInt(e.target.value); };
@@ -91,9 +98,7 @@
         if (isPlaying) return;
         audioCtx.resume();
         isPlaying = true;
-        // スタート時に確実にテキストを消す
         judgeEl.innerText = "";
-        judgeEl.style.color = "#fff";
         lastBeatTime = performance.now();
         beatCount = 0;
         update();
@@ -134,16 +139,41 @@
     }
 
     function spawnPattern(now) {
-        let count = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
-        let lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
-        for(let i = 0; i < count; i++) {
+        let totalToSpawn = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
+        
+        let leftLanes = [0, 1].sort(() => Math.random() - 0.5);
+        let rightLanes = [2, 3].sort(() => Math.random() - 0.5);
+        let selectedLanes = [];
+
+        if (totalToSpawn === 1) {
+            // 前回の履歴を見て逆の手を優先
+            let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
+            if (wasLeft) {
+                // 前回左なら、今回は80%の確率で右にする
+                selectedLanes.push(Math.random() < 0.8 ? rightLanes[0] : leftLanes.find(l => l !== lastLanes[0]));
+            } else {
+                // 前回右なら、今回は80%の確率で左にする
+                selectedLanes.push(Math.random() < 0.8 ? leftLanes[0] : rightLanes.find(l => l !== lastLanes[0]));
+            }
+        } else {
+            // 2つ以上の場合は必ず左右分散
+            selectedLanes.push(leftLanes[0], rightLanes[0]);
+            if (totalToSpawn >= 3) {
+                let remaining = [...leftLanes.slice(1), ...rightLanes.slice(1)].sort(() => Math.random() - 0.5);
+                for(let i = 0; i < totalToSpawn - 2; i++) selectedLanes.push(remaining[i]);
+            }
+        }
+
+        lastLanes = [...selectedLanes]; // 今回のレーンを保存
+
+        selectedLanes.forEach(laneIdx => {
             const n = notes.find(note => !note.active);
             if(n) {
-                n.active = true; n.lane = lanes[i];
+                n.active = true; n.lane = laneIdx;
                 n.targetTime = now + 1500;
                 n.el.style.left = `calc(${n.lane * 25}% + 3px)`;
             }
-        }
+        });
     }
 
     function judge(lane) {
@@ -161,16 +191,18 @@
         }
     }
 
-    // 最初の1回目のタップで確実にstartGameを呼ぶ
+    window.addEventListener('contextmenu', (e) => { e.preventDefault(); }, false);
+
     window.addEventListener('touchstart', (e) => {
-        if (!isPlaying) { 
-            startGame(); 
-            e.preventDefault();
-            return; 
-        }
+        if (!isPlaying) { startGame(); e.preventDefault(); return; }
+        const rect = gameArea.getBoundingClientRect();
         for (let i = 0; i < e.changedTouches.length; i++) {
-            const lane = Math.floor((e.changedTouches[i].clientX / window.innerWidth) * 4);
-            judge(lane);
+            const touchX = e.changedTouches[i].clientX;
+            if (touchX >= rect.left && touchX <= rect.right) {
+                const relativeX = touchX - rect.left;
+                const lane = Math.floor((relativeX / rect.width) * 4);
+                judge(Math.max(0, Math.min(3, lane)));
+            }
         }
     }, {passive: false});
 
