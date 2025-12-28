@@ -3,21 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V24 - Sync Beat</title>
-    <style>
-        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; <!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V32 - Rhythm Structure</title>
+    <title>V33 - Absolute Clean</title>
     <style>
         * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
+        body { background: #000; margin: 0; overflow: hidden; font-family: 'Consolas', monospace; touch-action: none; color: #fff; }
         #game-area {
             position: relative; width: 100%; max-width: 600px; height: 100vh;
-            margin: 0 auto; background: #030305; border-left: 2px solid #333; border-right: 2px solid #333;
+            margin: 0 auto; background: #050508; border-left: 1px solid #444; border-right: 1px solid #444;
         }
+        /* 判定ラインの間隔をノーツの厚み(24px)に完全一致 */
         .judge-rail {
             position: absolute; width: 100%; height: 2px;
             background: #0ff; box-shadow: 0 0 10px #0ff; z-index: 10;
@@ -26,33 +20,30 @@
         #rail-bottom { bottom: 138px; opacity: 0.6; } 
 
         .note {
-            position: absolute; width: calc(25% - 6px); height: 24px;
+            position: absolute; width: calc(25% - 10px); height: 24px;
             background: #fff; border-radius: 2px; display: none; z-index: 5;
             will-change: transform;
         }
         #ui { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 20; }
-        #judge-text { font-size: 3.5rem; font-weight: 900; height: 4.5rem; }
+        #judge-text { font-size: 3rem; font-weight: 900; height: 3.5rem; }
         #combo { font-size: 4rem; font-weight: bold; }
         #controls {
             position: absolute; top: 10px; left: 10px; z-index: 30;
-            background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; font-size: 14px; border: 1px solid #444;
+            background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-size: 12px; border: 1px solid #444;
         }
-        .input-box { background: #222; color: #fff; border: 1px solid #666; width: 55px; padding: 4px; text-align: center; }
-        .control-row { margin-bottom: 5px; }
+        .input-box { background: #222; color: #fff; border: 1px solid #666; width: 45px; padding: 2px; text-align: center; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div id="judge-text">START</div>
+    <div id="judge-text">TAP TO START</div>
     <div id="combo">0</div>
 </div>
 
 <div id="controls">
-    <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
-    <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
-    <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
-    <div style="font-size:10px; color:#0ff; margin-top:5px;">PERFECT: ±33.3ms</div>
+    BPM: <input type="number" id="inp-bpm" class="input-box" value="120">
+    OFF: <input type="number" id="inp-off" class="input-box" value="120">ms
 </div>
 
 <div id="game-area">
@@ -69,12 +60,12 @@
 
     let config = { bpm: 120, offset: 120, speed: 11, density: 1 };
     
-    document.getElementById('inp-bpm').onchange = (e) => { config.bpm = Math.max(1, parseInt(e.target.value)); };
-    document.getElementById('inp-den').onchange = (e) => { config.density = Math.max(1, Math.min(4, parseInt(e.target.value))); };
-    document.getElementById('inp-off').onchange = (e) => { config.offset = parseInt(e.target.value); };
+    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value);
+    document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value);
 
     let isPlaying = false, notes = [], combo = 0, lastBeatTime = 0, beatCount = 0;
 
+    // オブジェクトプール作成
     for (let i = 0; i < 200; i++) {
         const div = document.createElement('div');
         div.className = 'note';
@@ -82,20 +73,13 @@
         notes.push({ el: div, y: -50, lane: 0, active: false, targetTime: 0 });
     }
 
-    // 小節の頭かどうかで音を変える
     function playTick(isDownBeat) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
-        
-        // 1拍目は高音(1200Hz)、それ以外は中音(800Hz)
         osc.frequency.setValueAtTime(isDownBeat ? 1200 : 800, audioCtx.currentTime);
-        osc.type = 'sine';
-        
-        // 1拍目は少し強めに
-        gain.gain.setValueAtTime(isDownBeat ? 0.12 : 0.06, audioCtx.currentTime);
+        gain.gain.setValueAtTime(isDownBeat ? 0.1 : 0.05, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-        
         osc.start(); osc.stop(audioCtx.currentTime + 0.04);
     }
 
@@ -103,7 +87,8 @@
         if (isPlaying) return;
         audioCtx.resume();
         isPlaying = true;
-        judgeEl.innerText = "";
+        judgeEl.innerText = ""; // ここで確実にテキストを消す
+        judgeEl.style.color = "#fff";
         lastBeatTime = performance.now();
         beatCount = 0;
         update();
@@ -112,19 +97,12 @@
     function update() {
         if (!isPlaying) return;
         const now = performance.now();
-        // 1拍の間隔(ms)
-        const beatInterval = 60000 / config.bpm;
-        // 8分音符間隔でノーツ生成、背景音は4分音符(beatInterval)ごとに鳴らす
-        const spawnInterval = beatInterval / 2;
+        const spawnInterval = (60000 / config.bpm) / 2; // 8分音符間隔
 
         if (now - lastBeatTime > spawnInterval) {
-            // 背景音は2回に1回（4分音符ごと）鳴らす
             if (beatCount % 2 === 0) {
-                // 8拍（2小節）ごとにリセットされるカウントで判定（4拍子なら beatCount/2 % 4 === 0）
-                const isDownBeat = (beatCount / 2) % 4 === 0;
-                playTick(isDownBeat);
+                playTick((beatCount / 2) % 4 === 0);
             }
-            
             spawnPattern(now);
             lastBeatTime = now;
             beatCount++;
@@ -139,7 +117,7 @@
             n.el.style.transform = `translate3d(0, ${n.y}px, 0)`;
             n.el.style.display = 'block';
 
-            if (now > (n.targetTime + config.offset) + 100) {
+            if (now > (n.targetTime + config.offset) + 150) {
                 n.active = false; n.el.style.display = 'none';
                 combo = 0; comboEl.innerText = combo;
                 judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
@@ -149,15 +127,12 @@
     }
 
     function spawnPattern(now) {
-        let count = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
-        let lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
-        for(let i = 0; i < count; i++) {
-            const n = notes.find(note => !note.active);
-            if(n) {
-                n.active = true; n.lane = lanes[i];
-                n.targetTime = now + 1500;
-                n.el.style.left = `calc(${n.lane * 25}% + 3px)`;
-            }
+        const n = notes.find(note => !note.active);
+        if(n) {
+            n.active = true;
+            n.lane = Math.floor(Math.random() * 4);
+            n.targetTime = now + 1500;
+            n.el.style.left = `calc(${n.lane * 25}% + 5px)`;
         }
     }
 
@@ -166,10 +141,11 @@
         const target = notes.filter(n => n.active && n.lane === lane).sort((a, b) => a.targetTime - b.targetTime)[0];
         if (target) {
             const diff = Math.abs(now - (target.targetTime + config.offset));
-            if (diff < 100) {
+            if (diff < 150) {
                 target.active = false; target.el.style.display = 'none';
+                // ±33.33ms 厳格判定
                 if (diff <= 33.33) { judgeEl.innerText = "PERFECT"; judgeEl.style.color = "#0ff"; }
-                else if (diff <= 66.66) { judgeEl.innerText = "GREAT"; judgeEl.style.color = "#ff0"; }
+                else if (diff <= 70) { judgeEl.innerText = "GREAT"; judgeEl.style.color = "#ff0"; }
                 else { judgeEl.innerText = "GOOD"; judgeEl.style.color = "#fff"; }
                 combo++; comboEl.innerText = combo;
             }
@@ -179,8 +155,7 @@
     window.addEventListener('touchstart', (e) => {
         if (!isPlaying) { startGame(); return; }
         for (let i = 0; i < e.changedTouches.length; i++) {
-            const lane = Math.floor((e.changedTouches[i].clientX / window.innerWidth) * 4);
-            judge(lane);
+            judge(Math.floor((e.changedTouches[i].clientX / window.innerWidth) * 4));
         }
     }, {passive: false});
 
@@ -191,156 +166,4 @@
     };
 </script>
 </body>
-</html>}
-        body { background: #000; margin: 0; overflow: hidden; font-family: 'Consolas', monospace; touch-action: none; color: #fff; }
-        #game-area {
-            position: relative; width: 100%; max-width: 600px; height: 100vh;
-            margin: 0 auto; background: #050508; border-left: 1px solid #444; border-right: 1px solid #444;
-        }
-        #judge-box {
-            position: absolute; bottom: 150px; width: 100%; height: 24px;
-            background: rgba(0, 255, 255, 0.1); border-top: 2px solid #0ff; border-bottom: 2px solid #0ff;
-            z-index: 10;
-        }
-        .note {
-            position: absolute; width: calc(25% - 10px); height: 16px;
-            background: #fff; border-radius: 2px; display: none; z-index: 5;
-        }
-        #ui { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 20; }
-        #judge-text { font-size: 3rem; font-weight: 900; height: 3.5rem; }
-        #combo { font-size: 4rem; font-weight: bold; }
-        #bpm-display { position: absolute; top: 10px; right: 10px; color: #0f0; font-size: 1rem; }
-    </style>
-</head>
-<body>
-
-<div id="ui">
-    <div id="judge-text">TAP TO START</div>
-    <div id="combo">0</div>
-</div>
-<div id="bpm-display">BPM: 160 (16th Beat)</div>
-
-<div id="game-area">
-    <div id="judge-box"></div>
-    <div id="notes-container"></div>
-</div>
-
-<script>
-    const container = document.getElementById('notes-container');
-    const comboEl = document.getElementById('combo');
-    const judgeEl = document.getElementById('judge-text');
-    const judgeBox = document.getElementById('judge-box');
-    
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const BPM = 160; 
-    const NOTE_SPEED = 12; 
-    const JUDGE_Y = window.innerHeight - 150 - 12;
-    
-    let isPlaying = false, notes = [], combo = 0;
-    let nextNoteTime = 0.0;
-    const scheduleAheadTime = 0.1; // 秒
-
-    // ビート音と打鍵音
-    function playClick(time, freq, dur, vol) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.type = 'sine'; osc.frequency.setValueAtTime(freq, time);
-        gain.gain.setValueAtTime(vol, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
-        osc.start(time); osc.stop(time + dur);
-    }
-
-    // ノーツプール
-    for (let i = 0; i < 200; i++) {
-        const div = document.createElement('div');
-        div.className = 'note';
-        container.appendChild(div);
-        notes.push({ el: div, y: -50, lane: 0, active: false });
-    }
-
-    function spawnNote() {
-        const n = notes.find(note => !note.active);
-        if(n) {
-            n.active = true;
-            n.lane = Math.floor(Math.random() * 4);
-            n.y = -50;
-            n.el.style.display = 'block';
-            n.el.style.left = `calc(${n.lane * 25}% + 5px)`;
-        }
-    }
-
-    // メインループ（音と生成の同期）
-    function scheduler() {
-        while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
-            // 背景ビート音を鳴らす（4分音符ごと）
-            const beatInterval = 60.0 / BPM;
-            const subInterval = beatInterval / 4; // 16分音符
-            
-            // 背景ガイド音 (4分拍子でアクセント)
-            const isDownBeat = Math.round(nextNoteTime / beatInterval) % 4 === 0;
-            playClick(nextNoteTime, isDownBeat ? 880 : 440, 0.05, 0.02);
-            
-            spawnNote();
-            nextNoteTime += subInterval;
-        }
-        if(isPlaying) setTimeout(scheduler, 25);
-    }
-
-    function update() {
-        if (!isPlaying) return;
-        notes.forEach(n => {
-            if (!n.active) return;
-            n.y += NOTE_SPEED;
-            n.el.style.transform = `translate3d(0, ${n.y}px, 0)`;
-            if (n.y > window.innerHeight) {
-                n.active = false; n.el.style.display = 'none';
-                combo = 0; comboEl.innerText = combo;
-                judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
-            }
-        });
-        requestAnimationFrame(update);
-    }
-
-    function judge(lane) {
-        const target = notes.filter(n => n.active && n.lane === lane)
-                            .sort((a, b) => b.y - a.y)[0];
-        if (target && target.y > JUDGE_Y - 70 && target.y < JUDGE_Y + 70) {
-            const diff = Math.abs(target.y - JUDGE_Y);
-            target.active = false; target.el.style.display = 'none';
-            playClick(audioCtx.currentTime, 1200, 0.04, 0.05); // 打鍵音
-            if (diff < 10) { judgeEl.innerText = "MARVELOUS"; judgeEl.style.color = "#fff"; }
-            else if (diff < 25) { judgeEl.innerText = "PERFECT"; judgeEl.style.color = "#0ff"; }
-            else { judgeEl.innerText = "GREAT"; judgeEl.style.color = "#ff0"; }
-            combo++; comboEl.innerText = combo;
-        }
-    }
-
-    const start = () => {
-        if (isPlaying) return;
-        audioCtx.resume();
-        isPlaying = true;
-        judgeEl.innerText = "";
-        nextNoteTime = audioCtx.currentTime;
-        scheduler();
-        update();
-    };
-
-    window.addEventListener('touchstart', (e) => {
-        if (!isPlaying) { start(); return; }
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            const lane = Math.floor((touch.clientX / window.innerWidth) * 4);
-            judge(lane);
-        }
-    }, {passive: false});
-
-    window.onkeydown = (e) => {
-        if (!isPlaying) { start(); return; }
-        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[e.key.toLowerCase()];
-        if (lane !== undefined) judge(lane);
-    };
-</script>
-</body>
-
 </html>
