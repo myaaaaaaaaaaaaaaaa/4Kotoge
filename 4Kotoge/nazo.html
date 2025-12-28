@@ -3,81 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V32 - Performance Max</title>
+    <title>V32 - Final Layering Fix</title>
     <style>
         * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
-        #game-area {
+        
+        #game-container {
             position: relative; width: 100%; max-width: 600px; height: 100vh;
             margin: 0 auto; background-color: #030305;
             border-left: 2px solid #333; border-right: 2px solid #333;
             box-sizing: border-box;
         }
-        .judge-rail {
-            position: absolute; width: 100%; height: 2px;
-            background: #0ff; z-index: 10;
-        }
-        #rail-top { bottom: 112px; opacity: 0.6; } 
-        #rail-bottom { bottom: 88px; opacity: 0.6; } 
-        .note {
-            position: absolute; width: calc(25% - 6px); height: 24px;
-            border-radius: 2px; display: none; z-index: 5;
-            will-change: transform;
-            transform: translate3d(0, -100px, 0);
-        }
-        .note-white { background: #ffffff; }
-        .note-blue { background: #00bbff; }
 
-        #ui { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 20; }
-        #judge-text { font-size: 3.5rem; font-weight: 900; height: 4.5rem; }
-        #combo { font-size: 4rem; font-weight: bold; }
-        #controls {
-            position: absolute; top: 10px; left: 10px; z-index: 30;
-            background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; font-size: 14px; border: 1px solid #444;
+        /* Canvasを背面に固定 */
+        canvas { 
+            position: absolute; top: 0; left: 0;
+            display: block; width: 100%; height: 100%; z-index: 1;
         }
+
+		/* 修正案：UIをゲームエリアの左外側に配置する場合 */
+		#controls {
+			position: absolute; 
+			top: 10px; 
+			right: 100%; /* これでゲームエリアの左端から外に飛び出すだよ */
+			margin-right: 10px; /* エリアとの隙間 */
+			z-index: 50;
+			background: rgba(0,0,0,0.8);
+			padding: 10px;
+			border-radius: 6px;
+			border: 1px solid #444;
+			white-space: nowrap; /* 改行を防ぐ */
+		}
         .control-row { margin-bottom: 5px; }
         .input-box { background: #222; color: #fff; border: 1px solid #666; width: 55px; padding: 4px; text-align: center; }
         select.input-box { width: 65px; }
+
+        #ui-overlay { 
+            position: absolute; top: 15%; width: 100%; text-align: center; 
+            pointer-events: none; z-index: 20; 
+        }
+        #judge-text { font-size: 3.5rem; font-weight: 900; height: 4.5rem; }
+        #combo { font-size: 4rem; font-weight: bold; }
     </style>
 </head>
 <body>
-<div id="ui">
-    <div id="judge-text">START</div>
-    <div id="combo">0</div>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="controls">
+        <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
+        <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
+        <div class="control-row">解像: <select id="inp-res" class="input-box">
+            <option value="2">8分</option>
+            <option value="4" selected>16分</option>
+            <option value="6">24分</option>
+            <option value="8">32分</option>
+        </select></div>
+        <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
+    </div>
+
+    <div id="ui-overlay">
+        <div id="judge-text">START</div>
+        <div id="combo">0</div>
+    </div>
 </div>
-<div id="controls">
-    <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
-    <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
-    <div class="control-row">解像: <select id="inp-res" class="input-box">
-        <option value="2">8分</option>
-        <option value="4" selected>16分</option>
-        <option value="6">24分</option>
-        <option value="8">32分</option>
-    </select></div>
-    <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
-</div>
-<div id="game-area">
-    <div class="judge-rail" id="rail-top"></div>
-    <div class="judge-rail" id="rail-bottom"></div>
-    <div id="notes-container"></div>
-</div>
+
 <script>
-    const container = document.getElementById('notes-container');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
     const comboEl = document.getElementById('combo');
     const judgeEl = document.getElementById('judge-text');
-    const gameArea = document.getElementById('game-area');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     let config = { bpm: 120, offset: 120, speed: 11, density: 1, res: 4 };
     let lastLanes = [];
-    let isPlaying = false, notes = [], activeNotes = [], combo = 0, lastCheckTime = 0, subStep = 0;
+    let isPlaying = false, activeNotes = [], combo = 0, lastCheckTime = 0, subStep = 0;
+    let width, height;
 
-    for (let i = 0; i < 200; i++) {
-        const div = document.createElement('div');
-        div.className = 'note';
-        container.appendChild(div);
-        notes.push({ el: div, y: -100, lane: 0, active: false, targetTime: 0 });
+    function resize() {
+        const rect = canvas.parentNode.getBoundingClientRect();
+        width = canvas.width = rect.width;
+        height = canvas.height = rect.height;
     }
+    window.addEventListener('resize', resize);
+    resize();
 
     function playTick(isDownBeat) {
         const osc = audioCtx.createOscillator();
@@ -95,7 +105,7 @@
         isPlaying = true;
         judgeEl.innerText = "";
         lastCheckTime = performance.now();
-        subStep = 0; 
+        subStep = 0;
         update();
     }
 
@@ -105,7 +115,7 @@
         const beatInterval = 60000 / config.bpm;
         const stepInterval = beatInterval / config.res;
 
-        if (now - lastCheckTime > stepInterval) { 
+        if (now - lastCheckTime > stepInterval) {
             const isFullBeat = subStep % config.res === 0;
             const isDownBeat = isFullBeat && (subStep / config.res) % 4 === 0;
             if (isFullBeat) playTick(isDownBeat);
@@ -114,29 +124,37 @@
             subStep++;
         }
 
-        const judgeCenterY = window.innerHeight - 100;
+        ctx.fillStyle = "#030305";
+        ctx.fillRect(0, 0, width, height);
+
+        // 判定ライン
+        ctx.strokeStyle = "#0ff";
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(0, height - 112); ctx.lineTo(width, height - 112);
+        ctx.moveTo(0, height - 88); ctx.lineTo(width, height - 88);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+
+        const judgeCenterY = height - 100;
         const speedFactor = config.speed / 16.6;
 
         for (let i = activeNotes.length - 1; i >= 0; i--) {
             const n = activeNotes[i];
             const timeDiff = (n.targetTime + config.offset) - now;
-            n.y = judgeCenterY - (timeDiff * speedFactor) - 12;
-            n.el.style.transform = `translate3d(0, ${n.y}px, 0)`;
+            const y = judgeCenterY - (timeDiff * speedFactor) - 12;
+
+            ctx.fillStyle = n.isBlue ? "#00bbff" : "#ffffff";
+            ctx.fillRect(n.lane * (width / 4) + 3, y, (width / 4) - 6, 24);
 
             if (now > (n.targetTime + config.offset) + 100) {
-                deactivateNote(n, i);
+                activeNotes.splice(i, 1);
                 combo = 0; comboEl.innerText = combo;
                 judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
             }
         }
         requestAnimationFrame(update);
-    }
-
-    function deactivateNote(n, index) {
-        n.active = false;
-        n.el.style.display = 'none';
-        n.el.style.transform = `translate3d(0, -100px, 0)`;
-        activeNotes.splice(index, 1);
     }
 
     function spawnPattern(now, currentStep) {
@@ -158,16 +176,11 @@
         const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
 
         selected.forEach(laneIdx => {
-            const n = notes.find(note => !note.active);
-            if(n) {
-                n.active = true;
-                n.lane = laneIdx;
-                n.targetTime = now + 1500;
-                n.el.style.left = `calc(${laneIdx * 25}% + 3px)`;
-                n.el.className = isArrivalDownBeat ? 'note note-blue' : 'note note-white';
-                n.el.style.display = 'block';
-                activeNotes.push(n);
-            }
+            activeNotes.push({
+                lane: laneIdx,
+                targetTime: now + 1500,
+                isBlue: isArrivalDownBeat
+            });
         });
     }
 
@@ -178,7 +191,7 @@
             if (n.lane === lane) {
                 const diff = Math.abs(now - (n.targetTime + config.offset));
                 if (diff < 100) {
-                    deactivateNote(n, i);
+                    activeNotes.splice(i, 1);
                     judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
                     judgeEl.style.color = diff < 33 ? "#0ff" : "#fff";
                     combo++; comboEl.innerText = combo;
@@ -188,14 +201,13 @@
         }
     }
 
-    window.addEventListener('touchstart', (e) => {
+    // Canvas上でのタッチ判定
+    canvas.addEventListener('touchstart', (e) => {
         if (!isPlaying) { startGame(); return; }
-        const rect = gameArea.getBoundingClientRect();
+        const rect = canvas.getBoundingClientRect();
         for (let i = 0; i < e.changedTouches.length; i++) {
-            const x = e.changedTouches[i].clientX;
-            if (x >= rect.left && x <= rect.right) {
-                judge(Math.floor(((x - rect.left) / rect.width) * 4));
-            }
+            const x = e.changedTouches[i].clientX - rect.left;
+            judge(Math.floor((x / rect.width) * 4));
         }
     }, {passive: false});
 
