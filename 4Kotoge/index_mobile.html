@@ -55,12 +55,6 @@
     <div id="start-screen">
         <div class="menu-card">
             <h2 style="color:var(--accent); margin:0 0 10px 0;">SOLID ENGINE V18</h2>
-			<div class="setting-item">
-				<label style="display:inline-flex; align-items:center; cursor:pointer; color: #fff;">
-					<input type="checkbox" id="se-toggle" onchange="save()" style="width:18px; height:18px; margin-right:8px;">
-					タップ音を鳴らす
-				</label>
-			</div>
             <div class="setting-item"><label>練習モード</label><select id="pattern-mode" onchange="save()"><option value="random">完全ランダム</option><option value="stair">階段</option><option value="trill">トリル</option><option value="jack">縦連</option><option value="alt">交互押し</option></select></div>
             <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>最大同時押し</label><select id="multi-select" onchange="save()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div><div class="setting-item" style="flex:1;"><label>分割</label><select id="rhythm-select" onchange="save()"><option value="32">32分</option><option value="24">24分</option><option value="16">16分</option><option value="12" selected>12分</option></select></div></div>
             <div class="setting-item"><label>落下速度: <span id="speed-val">14</span></label><input type="range" id="speed-slider" min="5" max="40" value="14"></div>
@@ -103,302 +97,284 @@
         </div>
     </div>
 
-<script>
-    let speed, bpm, interval, isPlaying = false, isAP = true, isFC = true;
-    let combo = 0, maxCombo = 0, score = 0, stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
-    let notesInLane = [[], [], [], []], allNotesSequence = [], barLinesSequence = [], startTime = 0;
-    let pStep = 0, pSubStep = 0, pLane = 0, pDirection = 1;
-    let nextNoteIndex = 0, nextBarIndex = 0; // 追加：処理軽量化用
-    const targetY = window.innerHeight - 105;
+    <script>
+        let speed, bpm, interval, isPlaying = false, isAP = true, isFC = true;
+        let combo = 0, maxCombo = 0, score = 0, stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
+        let notesInLane = [[], [], [], []], allNotesSequence = [], barLinesSequence = [], startTime = 0;
+        let pStep = 0, pSubStep = 0, pLane = 0, pDirection = 1;
+        const targetY = window.innerHeight - 105;
 
-    const tapSound = new Audio('assets/tap.mp3');
-    const tehonSound = new Audio('assets/tehon.mp3');
-    const tempoSound = new Audio('assets/tempo.mp3');
+        const tapSound = new Audio('assets/tap.mp3');
+        const tehonSound = new Audio('assets/tehon.mp3');
+        const tempoSound = new Audio('assets/tempo.mp3');
 
-	const save = () => {
-		const d = { 
-			speed: document.getElementById('speed-slider').value, 
-			offset: document.getElementById('offset-ms').value, 
-			bpm: document.getElementById('bpm-input').value, 
-			length: document.getElementById('length-input').value, 
-			multi: document.getElementById('multi-select').value, 
-			rhythm: document.getElementById('rhythm-select').value, 
-			pattern: document.getElementById('pattern-mode').value,
-			se: document.getElementById('se-toggle').checked // 保存
-		};
-		localStorage.setItem('rhythmProV18', JSON.stringify(d));
-	};
+        const save = () => {
+            const d = { 
+                speed: document.getElementById('speed-slider').value, 
+                offset: document.getElementById('offset-ms').value, 
+                bpm: document.getElementById('bpm-input').value, 
+                length: document.getElementById('length-input').value, 
+                multi: document.getElementById('multi-select').value, 
+                rhythm: document.getElementById('rhythm-select').value, 
+                pattern: document.getElementById('pattern-mode').value 
+            };
+            localStorage.setItem('rhythmProV18', JSON.stringify(d));
+        };
 
-	const load = () => {
-		const s = JSON.parse(localStorage.getItem('rhythmProV18') || '{}');
-		if(s.speed) {
-			document.getElementById('speed-slider').value = s.speed;
-			document.getElementById('offset-ms').value = s.offset;
-			document.getElementById('bpm-input').value = s.bpm;
-			document.getElementById('length-input').value = s.length;
-			document.getElementById('multi-select').value = s.multi;
-			document.getElementById('rhythm-select').value = s.rhythm;
-			document.getElementById('pattern-mode').value = s.pattern;
-			document.getElementById('speed-val').innerText = s.speed;
-			// 読み込み（データがない場合はデフォルトfalse）
-			document.getElementById('se-toggle').checked = s.se || false;
-		}
-	};
-    load();
-    document.getElementById('speed-slider').oninput = function() { document.getElementById('speed-val').innerText = this.value; save(); };
-
-    function createSequence() {
-        allNotesSequence = [];
-        barLinesSequence = [];
-        const mode = document.getElementById('pattern-mode').value;
-        const maxMulti = parseInt(document.getElementById('multi-select').value);
-        const totalSec = parseInt(document.getElementById('length-input').value);
-        const rDiv = parseInt(document.getElementById('rhythm-select').value);
-        bpm = parseInt(document.getElementById('bpm-input').value);
-        interval = (60 / bpm / (rDiv / 4)) * 1000;
-        
-        let currentTime = 2000; 
-        pStep = 0; pSubStep = 0; pLane = 0; pDirection = 1;
-
-        while(currentTime < (totalSec * 1000) + 2000) {
-            if (pStep % rDiv === 0) {
-                barLinesSequence.push({ time: currentTime, spawned: false });
+        const load = () => {
+            const s = JSON.parse(localStorage.getItem('rhythmProV18') || '{}');
+            if(s.speed) {
+                document.getElementById('speed-slider').value = s.speed;
+                document.getElementById('offset-ms').value = s.offset;
+                document.getElementById('bpm-input').value = s.bpm;
+                document.getElementById('length-input').value = s.length;
+                document.getElementById('multi-select').value = s.multi;
+                document.getElementById('rhythm-select').value = s.rhythm;
+                document.getElementById('pattern-mode').value = s.pattern;
+                document.getElementById('speed-val').innerText = s.speed;
             }
-            let lanes = [];
-            if(mode === 'random') {
-                let count = Math.floor(Math.random() * maxMulti) + 1;
-                lanes = [0,1,2,3].sort(() => Math.random()-0.5).slice(0, count);
-            } else if(mode === 'stair') {
-                for(let i=0; i<maxMulti; i++) lanes.push((pLane + i) % 4);
-                pLane += pDirection;
-                if(pLane > 4 - maxMulti) { pLane = 4 - maxMulti - 1; pDirection = -1; }
-                else if(pLane < 0) { pLane = 1; pDirection = 1; }
-            } else if(mode === 'trill') {
-                if(pStep % 8 === 0) pLane = Math.floor(Math.random() * 2);
-                let side = (pStep % 2 === 0) ? [pLane] : [pLane + 2];
-                for(let i=0; i<maxMulti; i++) lanes.push((side[0] + i) % 4);
-            } else if(mode === 'jack') {
-                if(pSubStep <= 0) { pSubStep = Math.floor(Math.random() * 3) + 2; pLane = Math.floor(Math.random() * (5-maxMulti)); }
-                for(let i=0; i<maxMulti; i++) lanes.push(pLane + i);
-                pSubStep--;
-            } else if(mode === 'alt') {
-                let pairs = [[0,3], [1,2], [0,1], [2,3]];
-                if(pStep % 8 === 0) pSubStep = Math.floor(Math.random() * pairs.length);
-                let base = (pStep % 2 === 0) ? pairs[pSubStep][0] : pairs[pSubStep][1];
-                for(let i=0; i<maxMulti; i++) lanes.push((base + i) % 4);
-            }
-            lanes.forEach(l => {
-                allNotesSequence.push({ time: currentTime, lane: l, spawned: false, judged: false });
-            });
-            currentTime += interval;
-            pStep++;
-        }
-    }
-
-    function preStart() {
-        if(isPlaying) return; save();
-        createSequence();
-        [tapSound, tehonSound, tempoSound].forEach(s => { s.play().then(()=>s.pause()); s.currentTime = 0; });
-        document.getElementById('start-screen').style.display = 'none';
-        const ce = document.getElementById('countdown'); ce.style.display = 'block';
-        let c = 3; 
-        const cd = setInterval(() => { 
-            ce.innerText = c > 0 ? c : "GO!"; 
-            if(c-- < 0) { clearInterval(cd); ce.style.display='none'; startGame(); } 
-        }, 500);
-    }
-
-    function startGame() {
-        isPlaying = true;
-        notesInLane = [[], [], [], []];
-        nextNoteIndex = 0; // 初期化
-        nextBarIndex = 0;  // 初期化
-        combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
-        stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
-        speed = parseInt(document.getElementById('speed-slider').value);
-        document.getElementById('game-screen').style.display = 'flex';
-        startTime = performance.now();
-        
-        let rem = parseInt(document.getElementById('length-input').value);
-        const ti = setInterval(() => { 
-            if(!isPlaying) { clearInterval(ti); return; } 
-            if(--rem <= 0) { clearInterval(ti); endGame(); } 
-            document.getElementById('time-left').innerText = `TIME: ${rem}s`; 
-        }, 1000);
-        requestAnimationFrame(update);
-    }
-
-    function update(now) {
-        if(!isPlaying) return;
-        const elapsed = now - startTime;
-        const offsetMs = parseFloat(document.getElementById('offset-ms').value);
-        const fallDuration = 1000; 
-
-// 小節線の生成
-        while (nextBarIndex < barLinesSequence.length && barLinesSequence[nextBarIndex].time <= elapsed + fallDuration) {
-            const b = barLinesSequence[nextBarIndex];
-            const el = document.createElement('div');
-            el.className = 'bar-line';
-            document.getElementById('game-container').appendChild(el);
-            b.el = el;
+        };
+        load();
+        document.getElementById('speed-slider').oninput = function() { document.getElementById('speed-val').innerText = this.value; save(); };
+		function createSequence() {
+            allNotesSequence = [];
+            barLinesSequence = [];
+            const mode = document.getElementById('pattern-mode').value;
+            const maxMulti = parseInt(document.getElementById('multi-select').value);
+            const totalSec = parseInt(document.getElementById('length-input').value);
+            const rDiv = parseInt(document.getElementById('rhythm-select').value);
+            bpm = parseInt(document.getElementById('bpm-input').value);
+            interval = (60 / bpm / (rDiv / 4)) * 1000;
             
-            // 【修正】経過時間がノーツの本来の判定時間に達した瞬間に音を鳴らす
-            const tempoDelay = b.time - (elapsed - offsetMs);
-            if (tempoDelay <= 0) {
-                tempoSound.cloneNode().play().catch(()=>{});
-            } else {
-                // 判定枠に来るまで待ってから鳴らす
-                setTimeout(() => { if(isPlaying) tempoSound.cloneNode().play().catch(()=>{}); }, tempoDelay);
-            }
-            nextBarIndex++;
-        }
+			// 2000ms（2秒）の余白を持たせることで、ノーツが上から降ってくる過程が見えるようにするよ。
+            let currentTime = 2000; 
+            pStep = 0; pSubStep = 0; pLane = 0; pDirection = 1;
 
-        // ノーツの生成
-        while (nextNoteIndex < allNotesSequence.length && allNotesSequence[nextNoteIndex].time <= elapsed + fallDuration) {
-            const n = allNotesSequence[nextNoteIndex];
-            const el = document.createElement('div');
-            el.className = `note ${(n.lane % 2 === 0) ? 'note-lane-0' : 'note-lane-1'}`;
-            document.getElementById(`lane-${n.lane}`).appendChild(el);
-            n.el = el;
-            notesInLane[n.lane].push(n);
-
-            // 【修正】ノーツが判定枠（targetY）に重なるタイミングで音を鳴らす
-            const tehonDelay = n.time - (elapsed - offsetMs);
-            if (tehonDelay <= 0) {
-                tehonSound.cloneNode().play().catch(()=>{});
-            } else {
-                // 判定枠に来るまで待ってから鳴らす
-                setTimeout(() => { if(isPlaying) tehonSound.cloneNode().play().catch(()=>{}); }, tehonDelay);
-            }
-            nextNoteIndex++;
-        }
-
-        // 小節線の移動
-        barLinesSequence.forEach(b => {
-            if(b.el) {
-                const diff = b.time - (elapsed - offsetMs);
-                const y = targetY - (diff * (speed * 60) / 1000);
-                b.el.style.transform = `translate3d(0, ${y}px, 0)`;
-                if(diff < -200) { b.el.remove(); b.el = null; }
-            }
-        });
-
-        // ノーツの移動とミス判定
-        notesInLane.forEach(lane => {
-            for (let i = lane.length - 1; i >= 0; i--) {
-                const n = lane[i];
-                if(n.judged) continue;
-                const diff = n.time - (elapsed - offsetMs);
-                const y = targetY - (diff * (speed * 60) / 1000);
-                n.el.style.transform = `translate3d(0, ${y}px, 0)`;
-                if(diff < -150) {
-                    n.judged = true; combo = 0; isAP = isFC = false; stats.miss++;
-                    setUI("MISS", "miss-text", "", "");
-                    n.el.remove(); lane.splice(i, 1);
+            // 終了判定も開始時間をずらした分だけ延長するよ。
+            while(currentTime < (totalSec * 1000) + 2000) {
+                // 小節線のデータ作成
+                if (pStep % rDiv === 0) {
+                    barLinesSequence.push({ time: currentTime, spawned: false });
                 }
+
+                // ノーツのパターン生成
+                let lanes = [];
+                if(mode === 'random') {
+                    let count = Math.floor(Math.random() * maxMulti) + 1;
+                    lanes = [0,1,2,3].sort(() => Math.random()-0.5).slice(0, count);
+                } else if(mode === 'stair') {
+                    for(let i=0; i<maxMulti; i++) lanes.push((pLane + i) % 4);
+                    pLane += pDirection;
+                    if(pLane > 4 - maxMulti) { pLane = 4 - maxMulti - 1; pDirection = -1; }
+                    else if(pLane < 0) { pLane = 1; pDirection = 1; }
+                } else if(mode === 'trill') {
+                    if(pStep % 8 === 0) pLane = Math.floor(Math.random() * 2);
+                    let side = (pStep % 2 === 0) ? [pLane] : [pLane + 2];
+                    for(let i=0; i<maxMulti; i++) lanes.push((side[0] + i) % 4);
+                } else if(mode === 'jack') {
+                    if(pSubStep <= 0) { pSubStep = Math.floor(Math.random() * 3) + 2; pLane = Math.floor(Math.random() * (5-maxMulti)); }
+                    for(let i=0; i<maxMulti; i++) lanes.push(pLane + i);
+                    pSubStep--;
+                } else if(mode === 'alt') {
+                    let pairs = [[0,3], [1,2], [0,1], [2,3]];
+                    if(pStep % 8 === 0) pSubStep = Math.floor(Math.random() * pairs.length);
+                    let base = (pStep % 2 === 0) ? pairs[pSubStep][0] : pairs[pSubStep][1];
+                    for(let i=0; i<maxMulti; i++) lanes.push((base + i) % 4);
+                }
+
+                lanes.forEach(l => {
+                    allNotesSequence.push({ time: currentTime, lane: l, spawned: false, judged: false });
+                });
+
+                currentTime += interval;
+                pStep++;
             }
-        });
-        requestAnimationFrame(update);
-    }
+        }
 
-	function judge(l) {
-		if(!isPlaying) return;
-		if(document.getElementById('se-toggle').checked) {
-			tapSound.cloneNode().play().catch(()=>{});
-		}
-		const now = performance.now() - startTime;
-        const offsetMs = parseFloat(document.getElementById('offset-ms').value);
-        const lane = notesInLane[l];
-        if(!lane.length) return;
+        function preStart() {
+            if(isPlaying) return; save();
+            createSequence();
+            [tapSound, tehonSound, tempoSound].forEach(s => { s.play().then(()=>s.pause()); s.currentTime = 0; });
+            document.getElementById('start-screen').style.display = 'none';
+            const ce = document.getElementById('countdown'); ce.style.display = 'block';
+            let c = 3; 
+            const cd = setInterval(() => { 
+                ce.innerText = c > 0 ? c : "GO!"; 
+                if(c-- < 0) { clearInterval(cd); ce.style.display='none'; startGame(); } 
+            }, 500);
+        }
 
-        const n = lane[0];
-        const diff = n.time - (now - offsetMs);
-        const abs = Math.abs(diff);
-
-        if(abs < 150) {
-            let r = "PERFECT", cls = "";
-            if(abs < 20) { cls = "p-deep-text"; stats.deepP++; }
-            else if(abs < 45) { cls = "p-pale-text"; stats.paleP++; }
-            else if(abs < 80) { r = "GREAT"; cls = "great-text"; stats.great++; isAP = false; }
-            else { r = "GOOD"; cls = "good-text"; stats.good++; isAP = isFC = false; }
+        function startGame() {
+            isPlaying = true;
+            notesInLane = [[], [], [], []];
+            combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
+            stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
+            speed = parseInt(document.getElementById('speed-slider').value);
+            document.getElementById('game-screen').style.display = 'flex';
+            startTime = performance.now();
             
-            stats.diffs.push(diff);
-            if(diff > 5) stats.fast++; else if(diff < -5) stats.late++;
-            score += (abs < 20 ? 1000 : (abs < 45 ? 900 : 500)); 
-            combo++; maxCombo = Math.max(maxCombo, combo);
-            setUI(r, cls, diff > 5 ? "FAST" : (diff < -5 ? "LATE" : ""), Math.abs(Math.round(diff)));
-            n.judged = true; n.el.remove(); lane.shift();
+            let rem = parseInt(document.getElementById('length-input').value);
+            const ti = setInterval(() => { 
+                if(!isPlaying) { clearInterval(ti); return; } 
+                if(--rem <= 0) { clearInterval(ti); endGame(); } 
+                document.getElementById('time-left').innerText = `TIME: ${rem}s`; 
+            }, 1000);
+            requestAnimationFrame(update);
         }
-    }
 
-    function setUI(txt, cls, s, ms) {
-        const f = document.getElementById('feedback'), c = document.getElementById('combo'), t = document.getElementById('timing-info');
-        f.innerText = txt; f.className = cls;
-        c.innerText = combo;
-        c.className = isAP ? "combo-ap" : (isFC ? "combo-fc" : "");
-        t.innerHTML = s ? `<span class="${s.toLowerCase()}-text">${s}</span> ${ms}ms` : "";
-        document.getElementById('score-val').innerText = score.toString().padStart(6,'0');
-    }
+        function update(now) {
+            if(!isPlaying) return;
+            const elapsed = now - startTime;
+            const offsetMs = parseFloat(document.getElementById('offset-ms').value);
+            const fallDuration = 1000; 
 
-    function endGame() {
-        isPlaying = false;
-        document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('result-screen').style.display = 'flex';
-        const total = stats.deepP + stats.paleP + stats.great + stats.good + stats.miss;
-        const acc = total === 0 ? 0 : ((stats.deepP + stats.paleP + stats.great*0.5 + stats.good*0.2)/total*100).toFixed(2);
-        
-        const statusEl = document.getElementById('res-status');
-        if(isAP && total > 0) { statusEl.innerText = "ALL PERFECT"; statusEl.className = "p-deep-text"; }
-        else if(isFC && total > 0) { statusEl.innerText = "FULL COMBO"; statusEl.className = "combo-fc"; }
-        else { statusEl.innerText = "CLEARED"; statusEl.className = ""; }
+            // 小節線の生成と移動
+            barLinesSequence.forEach(b => {
+                if(!b.spawned && b.time <= elapsed + fallDuration) {
+                    const el = document.createElement('div');
+                    el.className = 'bar-line';
+                    document.getElementById('game-container').appendChild(el);
+                    b.el = el; b.spawned = true;
+                    // 小節線に合わせたテンポ音
+                    const tempoDelay = b.time - elapsed;
+					setTimeout(() => { if(isPlaying) tempoSound.cloneNode().play(); }, Math.max(0, tempoDelay));
+                }
+                if(b.spawned && b.el) {
+                    const diff = b.time - (elapsed - offsetMs);
+                    const y = targetY - (diff * (speed * 60) / 1000);
+                    b.el.style.transform = `translate3d(0, ${y}px, 0)`;
+                    if(diff < -200) { b.el.remove(); b.el = null; }
+                }
+            });
 
-        document.getElementById('res-score').innerText = score.toString().padStart(6,'0');
-        document.getElementById('res-rank').innerText = acc >= 99 ? "SSS" : (acc >= 95 ? "SS" : (acc >= 90 ? "S" : "A"));
-        document.getElementById('res-maxcombo').innerText = `MAX COMBO: ${maxCombo}`;
-        document.getElementById('res-fast').innerText = `FAST: ${stats.fast}`;
-        document.getElementById('res-late').innerText = `LATE: ${stats.late}`;
-        
-        document.getElementById('res-stats').innerHTML = `
-            <div class="stat-line"><span class="p-deep-text">PERFECT (Deep)</span><span>${stats.deepP}</span></div>
-            <div class="stat-line"><span class="p-pale-text">PERFECT (Pale)</span><span>${stats.paleP}</span></div>
-            <div class="stat-line"><span class="great-text">GREAT</span><span>${stats.great}</span></div>
-            <div class="stat-line"><span class="good-text">GOOD</span><span>${stats.good}</span></div>
-            <div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>`;
+            // ノーツの生成
+            allNotesSequence.forEach(n => {
+                if(!n.spawned && n.time <= elapsed + fallDuration) {
+                    const el = document.createElement('div');
+                    el.className = `note ${(n.lane % 2 === 0) ? 'note-lane-0' : 'note-lane-1'}`;
+                    document.getElementById(`lane-${n.lane}`).appendChild(el);
+                    n.el = el; n.spawned = true;
+                    notesInLane[n.lane].push(n);
+                    // 手本音
+                    const tehonDelay = n.time - elapsed;
+					setTimeout(() => { if(isPlaying) tehonSound.cloneNode().play().catch(()=>{}); }, Math.max(0, tehonDelay));
+                }
+            });
 
-        const container = document.getElementById('graph-container');
-        container.innerHTML = '<div class="center-line"></div>'; 
-        const lLine = document.createElement('div'); lLine.className = 'border-line'; lLine.style.left = '25%'; container.appendChild(lLine);
-        const rLine = document.createElement('div'); rLine.className = 'border-line'; rLine.style.left = '75%'; container.appendChild(rLine);
+            // ノーツの移動とミス判定
+            notesInLane.forEach(lane => {
+                for (let i = lane.length - 1; i >= 0; i--) {
+                    const n = lane[i];
+                    if(n.judged) continue;
+                    const diff = n.time - (elapsed - offsetMs);
+                    const y = targetY - (diff * (speed * 60) / 1000);
+                    n.el.style.transform = `translate3d(0, ${y}px, 0)`;
+                    if(diff < -150) {
+                        n.judged = true; combo = 0; isAP = isFC = false; stats.miss++;
+                        setUI("MISS", "miss-text", "", "");
+                        n.el.remove(); lane.splice(i, 1);
+                    }
+                }
+            });
+            requestAnimationFrame(update);
+        }
 
-        stats.diffs.forEach((d, index) => {
-            const dot = document.createElement('div');
-            dot.className = 'graph-bar';
-            const abs = Math.abs(d);
-            if (abs < 20) { dot.style.background = 'var(--accent)'; dot.style.zIndex = '15'; }
-            else if (abs < 45) { dot.style.background = '#fff'; dot.style.zIndex = '12'; }
-            else if (abs < 80) { dot.style.background = 'var(--great)'; dot.style.zIndex = '11'; }
-            else { dot.style.background = 'var(--good)'; dot.style.zIndex = '10'; }
-            dot.style.bottom = (index % 10) * 6 + "px"; 
-            dot.style.left = Math.min(Math.max(((d + 100) / 200) * 100, 0), 100) + "%"; 
-            container.appendChild(dot);
+        function judge(l) {
+            if(!isPlaying) return;
+            tapSound.cloneNode().play().catch(()=>{});
+            const now = performance.now() - startTime;
+            const offsetMs = parseFloat(document.getElementById('offset-ms').value);
+            const lane = notesInLane[l];
+            if(!lane.length) return;
+
+            const n = lane[0];
+            const diff = n.time - (now - offsetMs);
+            const abs = Math.abs(diff);
+
+            if(abs < 150) {
+                let r = "PERFECT", cls = "";
+                if(abs < 20) { cls = "p-deep-text"; stats.deepP++; }
+                else if(abs < 45) { cls = "p-pale-text"; stats.paleP++; }
+                else if(abs < 80) { r = "GREAT"; cls = "great-text"; stats.great++; isAP = false; }
+                else { r = "GOOD"; cls = "good-text"; stats.good++; isAP = isFC = false; }
+                
+                stats.diffs.push(diff);
+                if(diff > 5) stats.fast++; else if(diff < -5) stats.late++;
+                score += (abs < 20 ? 1000 : (abs < 45 ? 900 : 500)); 
+                combo++; maxCombo = Math.max(maxCombo, combo);
+                setUI(r, cls, diff > 5 ? "FAST" : (diff < -5 ? "LATE" : ""), Math.abs(Math.round(diff)));
+                n.judged = true; n.el.remove(); lane.shift();
+            }
+        }
+
+        function setUI(txt, cls, s, ms) {
+            const f = document.getElementById('feedback'), c = document.getElementById('combo'), t = document.getElementById('timing-info');
+            f.innerText = txt; f.className = cls;
+            c.innerText = combo;
+            c.className = isAP ? "combo-ap" : (isFC ? "combo-fc" : "");
+            t.innerHTML = s ? `<span class="${s.toLowerCase()}-text">${s}</span> ${ms}ms` : "";
+            document.getElementById('score-val').innerText = score.toString().padStart(6,'0');
+        }
+
+        function endGame() {
+            isPlaying = false;
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'flex';
+            const total = stats.deepP + stats.paleP + stats.great + stats.good + stats.miss;
+            const acc = total === 0 ? 0 : ((stats.deepP + stats.paleP + stats.great*0.5 + stats.good*0.2)/total*100).toFixed(2);
+            
+            const statusEl = document.getElementById('res-status');
+            if(isAP && total > 0) { statusEl.innerText = "ALL PERFECT"; statusEl.className = "p-deep-text"; }
+            else if(isFC && total > 0) { statusEl.innerText = "FULL COMBO"; statusEl.className = "combo-fc"; }
+            else { statusEl.innerText = "CLEARED"; statusEl.className = ""; }
+
+            document.getElementById('res-score').innerText = score.toString().padStart(6,'0');
+            document.getElementById('res-rank').innerText = acc >= 99 ? "SSS" : (acc >= 95 ? "SS" : (acc >= 90 ? "S" : "A"));
+            document.getElementById('res-maxcombo').innerText = `MAX COMBO: ${maxCombo}`;
+            document.getElementById('res-fast').innerText = `FAST: ${stats.fast}`;
+            document.getElementById('res-late').innerText = `LATE: ${stats.late}`;
+            
+            document.getElementById('res-stats').innerHTML = `
+                <div class="stat-line"><span class="p-deep-text">PERFECT (Deep)</span><span>${stats.deepP}</span></div>
+                <div class="stat-line"><span class="p-pale-text">PERFECT (Pale)</span><span>${stats.paleP}</span></div>
+                <div class="stat-line"><span class="great-text">GREAT</span><span>${stats.great}</span></div>
+                <div class="stat-line"><span class="good-text">GOOD</span><span>${stats.good}</span></div>
+                <div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>`;
+
+            const container = document.getElementById('graph-container');
+            container.innerHTML = '<div class="center-line"></div>'; 
+            const lLine = document.createElement('div'); lLine.className = 'border-line'; lLine.style.left = '25%'; container.appendChild(lLine);
+            const rLine = document.createElement('div'); rLine.className = 'border-line'; rLine.style.left = '75%'; container.appendChild(rLine);
+
+            stats.diffs.forEach((d, index) => {
+                const dot = document.createElement('div');
+                dot.className = 'graph-bar';
+                const abs = Math.abs(d);
+                if (abs < 20) { dot.style.background = 'var(--accent)'; dot.style.zIndex = '15'; }
+                else if (abs < 45) { dot.style.background = '#fff'; dot.style.zIndex = '12'; }
+                else if (abs < 80) { dot.style.background = 'var(--great)'; dot.style.zIndex = '11'; }
+                else { dot.style.background = 'var(--good)'; dot.style.zIndex = '10'; }
+                dot.style.bottom = (index % 10) * 6 + "px"; 
+                dot.style.left = Math.min(Math.max(((d + 100) / 200) * 100, 0), 100) + "%"; 
+                container.appendChild(dot);
+            });
+
+            const rawAvg = stats.diffs.length ? (stats.diffs.reduce((a,b)=>a+b,0) / stats.diffs.length) : 0;
+            const validDiffs = stats.diffs.filter(d => Math.abs(d - rawAvg) < 100);
+            const avg = validDiffs.length ? (validDiffs.reduce((a,b)=>a+b,0) / validDiffs.length) : 0;
+            const currentOffset = parseFloat(document.getElementById('offset-ms').value) || 0;
+            document.getElementById('res-recommend').innerText = `ACC: ${acc}% | 推奨判定: ${(currentOffset - avg).toFixed(1)}ms`;
+        }
+
+        document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+        window.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                if (document.getElementById('result-screen').style.display === 'flex') { location.reload(); return; }
+                if (!isPlaying && document.getElementById('start-screen').style.display !== 'none') preStart();
+            }
+            const idx = ['d','f','j','k'].indexOf(e.key.toLowerCase());
+            if(isPlaying && idx !== -1) judge(idx);
         });
-
-        const rawAvg = stats.diffs.length ? (stats.diffs.reduce((a,b)=>a+b,0) / stats.diffs.length) : 0;
-        const validDiffs = stats.diffs.filter(d => Math.abs(d - rawAvg) < 100);
-        const avg = validDiffs.length ? (validDiffs.reduce((a,b)=>a+b,0) / validDiffs.length) : 0;
-        const currentOffset = parseFloat(document.getElementById('offset-ms').value) || 0;
-        document.getElementById('res-recommend').innerText = `ACC: ${acc}% | 推奨判定: ${(currentOffset - avg).toFixed(1)}ms`;
-    }
-
-    document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-    window.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-            if (document.getElementById('result-screen').style.display === 'flex') { location.reload(); return; }
-            if (!isPlaying && document.getElementById('start-screen').style.display !== 'none') preStart();
-        }
-        const idx = ['d','f','j','k'].indexOf(e.key.toLowerCase());
-        if(isPlaying && idx !== -1) judge(idx);
-    });
-</script>
+    </script>
 </body>
 </html>
