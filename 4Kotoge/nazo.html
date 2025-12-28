@@ -2,168 +2,135 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V33 - Absolute Clean</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>V18 Ultimate - Density Restored</title>
     <style>
-        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { background: #000; margin: 0; overflow: hidden; font-family: 'Consolas', monospace; touch-action: none; color: #fff; }
-        #game-area {
-            position: relative; width: 100%; max-width: 600px; height: 100vh;
-            margin: 0 auto; background: #050508; border-left: 1px solid #444; border-right: 1px solid #444;
+        :root { 
+            --accent: #00ffff; --p-deep: linear-gradient(135deg, #ff0000, #ff00ff, #0000ff); 
+            --p-pale: linear-gradient(135deg, #ffffff, #a0e0ff, #ffffff);
+            --great: #ff69b4; --good: #4caf50; --miss: #808080;
         }
-        /* 判定ラインの間隔をノーツの厚み(24px)に完全一致 */
-        .judge-rail {
-            position: absolute; width: 100%; height: 2px;
-            background: #0ff; box-shadow: 0 0 10px #0ff; z-index: 10;
-        }
-        #rail-top { bottom: 162px; opacity: 0.6; } 
-        #rail-bottom { bottom: 138px; opacity: 0.6; } 
-
-        .note {
-            position: absolute; width: calc(25% - 10px); height: 24px;
-            background: #fff; border-radius: 2px; display: none; z-index: 5;
-            will-change: transform;
-        }
-        #ui { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 20; }
-        #judge-text { font-size: 3rem; font-weight: 900; height: 3.5rem; }
-        #combo { font-size: 4rem; font-weight: bold; }
-        #controls {
-            position: absolute; top: 10px; left: 10px; z-index: 30;
-            background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-size: 12px; border: 1px solid #444;
-        }
-        .input-box { background: #222; color: #fff; border: 1px solid #666; width: 45px; padding: 2px; text-align: center; }
+        body { background: #000; margin: 0; overflow: hidden; touch-action: none; font-family: sans-serif; color: white; }
+        #start-screen, #game-screen { width: 100vw; height: 100vh; position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #game-screen { display: none; }
+        .menu-card { background: #111; padding: 20px; border-radius: 12px; border: 1px solid #444; width: 380px; text-align: center; }
+        .setting-item { margin: 8px 0; text-align: left; font-size: 0.8rem; }
+        select, input { width: 100%; padding: 8px; background: #222; color: white; border: 1px solid #555; border-radius: 4px; }
+        button { padding: 15px; background: var(--accent); border: none; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+        
+        #game-container { width: 100%; max-width: 500px; height: 100%; position: relative; border-left: 2px solid #333; border-right: 2px solid #333; }
+        .lane { position: absolute; top: 0; width: 25%; height: 100%; border-right: 1px solid #222; }
+        .target-mark { position: absolute; bottom: 138px; width: 90%; left: 5%; height: 24px; border-top: 2px solid #0ff; border-bottom: 2px solid #0ff; opacity: 0.5; }
+        .note { position: absolute; width: 90%; left: 5%; height: 24px; background: #fff; border-radius: 3px; display: none; will-change: transform; }
+        #ui-layer { position: absolute; top: 20%; width: 100%; text-align: center; pointer-events: none; }
+        #judge-text { font-size: 3rem; font-weight: 900; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div id="judge-text">TAP TO START</div>
-    <div id="combo">0</div>
+<div id="start-screen">
+    <div class="menu-card">
+        <h2 style="color:var(--accent)">V18 HYBRID ENGINE</h2>
+        <div class="setting-item"><label>練習モード</label><select id="mode"><option value="random">完全ランダム</option><option value="stair">階段</option></select></div>
+        <div class="setting-item"><label>最大同時押し(密度)</label><select id="density"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+        <div class="setting-item"><label>BPM</label><input type="number" id="bpm" value="120"></div>
+        <div class="setting-item"><label>OFFSET (ms)</label><input type="number" id="off" value="120"></div>
+        <button onclick="initGame()">START</button>
+    </div>
 </div>
 
-<div id="controls">
-    BPM: <input type="number" id="inp-bpm" class="input-box" value="120">
-    OFF: <input type="number" id="inp-off" class="input-box" value="120">ms
-</div>
-
-<div id="game-area">
-    <div class="judge-rail" id="rail-top"></div>
-    <div class="judge-rail" id="rail-bottom"></div>
-    <div id="notes-container"></div>
+<div id="game-screen">
+    <div id="ui-layer"><div id="judge-text"></div><div id="combo" style="font-size:3rem">0</div></div>
+    <div id="game-container">
+        <div class="lane" style="left:0"></div><div class="lane" style="left:25%"></div>
+        <div class="lane" style="left:50%"></div><div class="lane" style="left:75%"></div>
+        <div class="target-mark"></div>
+        <div id="notes-container"></div>
+    </div>
 </div>
 
 <script>
-    const container = document.getElementById('notes-container');
-    const comboEl = document.getElementById('combo');
-    const judgeEl = document.getElementById('judge-text');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let isPlaying = false, notes = [], combo = 0, lastSpawn = 0;
+    let config = { bpm: 120, offset: 120, density: 1, mode: 'random', speed: 11 };
 
-    let config = { bpm: 120, offset: 120, speed: 11, density: 1 };
-    
-    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value);
-    document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value);
-
-    let isPlaying = false, notes = [], combo = 0, lastBeatTime = 0, beatCount = 0;
-
-    // オブジェクトプール作成
-    for (let i = 0; i < 200; i++) {
-        const div = document.createElement('div');
-        div.className = 'note';
-        container.appendChild(div);
-        notes.push({ el: div, y: -50, lane: 0, active: false, targetTime: 0 });
+    for(let i=0; i<200; i++) {
+        const div = document.createElement('div'); div.className = 'note';
+        document.getElementById('notes-container').appendChild(div);
+        notes.push({ el: div, active: false, lane: 0, targetTime: 0 });
     }
 
-    function playTick(isDownBeat) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(isDownBeat ? 1200 : 800, audioCtx.currentTime);
-        gain.gain.setValueAtTime(isDownBeat ? 0.1 : 0.05, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.04);
-    }
-
-    function startGame() {
-        if (isPlaying) return;
+    function initGame() {
+        config.bpm = parseInt(document.getElementById('bpm').value);
+        config.offset = parseInt(document.getElementById('off').value);
+        config.density = parseInt(document.getElementById('density').value);
+        config.mode = document.getElementById('mode').value;
+        
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'flex';
         audioCtx.resume();
         isPlaying = true;
-        judgeEl.innerText = ""; // ここで確実にテキストを消す
-        judgeEl.style.color = "#fff";
-        lastBeatTime = performance.now();
-        beatCount = 0;
+        lastSpawn = performance.now();
         update();
     }
 
-    function update() {
-        if (!isPlaying) return;
-        const now = performance.now();
-        const spawnInterval = (60000 / config.bpm) / 2; // 8分音符間隔
-
-        if (now - lastBeatTime > spawnInterval) {
-            if (beatCount % 2 === 0) {
-                playTick((beatCount / 2) % 4 === 0);
+    function spawn() {
+        // あなたが消されたと怒った「密度」に基づいた同時押し生成ロジック
+        let count = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
+        let lanes = [0,1,2,3].sort(() => Math.random() - 0.5);
+        
+        for(let i=0; i<count; i++) {
+            const n = notes.find(note => !note.active);
+            if(n) {
+                n.active = true; n.lane = lanes[i];
+                n.targetTime = performance.now() + 1500;
+                n.el.style.left = `calc(${n.lane * 25}% + 5px)`;
+                n.el.style.display = 'block';
             }
-            spawnPattern(now);
-            lastBeatTime = now;
-            beatCount++;
+        }
+    }
+
+    function update() {
+        if(!isPlaying) return;
+        const now = performance.now();
+        const interval = 60000 / config.bpm / 2;
+
+        if(now - lastSpawn > interval) {
+            spawn();
+            lastSpawn = now;
         }
 
-        const judgeCenterY = window.innerHeight - 150; 
-
+        const judgeY = window.innerHeight - 150;
         notes.forEach(n => {
-            if (!n.active) return;
-            const timeDiff = (n.targetTime + config.offset) - now; 
-            n.y = judgeCenterY - (timeDiff * (config.speed / 16.6)) - 12;
-            n.el.style.transform = `translate3d(0, ${n.y}px, 0)`;
-            n.el.style.display = 'block';
-
-            if (now > (n.targetTime + config.offset) + 150) {
-                n.active = false; n.el.style.display = 'none';
-                combo = 0; comboEl.innerText = combo;
-                judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
-            }
+            if(!n.active) return;
+            const diff = (n.targetTime + config.offset) - now;
+            const y = judgeY - (diff * (config.speed / 16.6)) - 12;
+            n.el.style.transform = `translate3d(0, ${y}px, 0)`;
+            if(diff < -150) { n.active = false; n.el.style.display = 'none'; combo = 0; }
         });
         requestAnimationFrame(update);
     }
 
-    function spawnPattern(now) {
-        const n = notes.find(note => !note.active);
-        if(n) {
-            n.active = true;
-            n.lane = Math.floor(Math.random() * 4);
-            n.targetTime = now + 1500;
-            n.el.style.left = `calc(${n.lane * 25}% + 5px)`;
-        }
-    }
-
     function judge(lane) {
         const now = performance.now();
-        const target = notes.filter(n => n.active && n.lane === lane).sort((a, b) => a.targetTime - b.targetTime)[0];
-        if (target) {
+        const target = notes.filter(n => n.active && n.lane === lane).sort((a,b) => a.targetTime - b.targetTime)[0];
+        if(target) {
             const diff = Math.abs(now - (target.targetTime + config.offset));
-            if (diff < 150) {
+            if(diff < 150) {
                 target.active = false; target.el.style.display = 'none';
-                // ±33.33ms 厳格判定
-                if (diff <= 33.33) { judgeEl.innerText = "PERFECT"; judgeEl.style.color = "#0ff"; }
-                else if (diff <= 70) { judgeEl.innerText = "GREAT"; judgeEl.style.color = "#ff0"; }
-                else { judgeEl.innerText = "GOOD"; judgeEl.style.color = "#fff"; }
-                combo++; comboEl.innerText = combo;
+                combo++; document.getElementById('combo').innerText = combo;
+                const txt = diff < 33.33 ? "PERFECT" : (diff < 70 ? "GREAT" : "GOOD");
+                document.getElementById('judge-text').innerText = txt;
             }
         }
     }
 
-    window.addEventListener('touchstart', (e) => {
-        if (!isPlaying) { startGame(); return; }
-        for (let i = 0; i < e.changedTouches.length; i++) {
+    window.addEventListener('touchstart', e => {
+        if(!isPlaying) return;
+        for(let i=0; i<e.changedTouches.length; i++) {
             judge(Math.floor((e.changedTouches[i].clientX / window.innerWidth) * 4));
         }
-    }, {passive: false});
-
-    window.onkeydown = (e) => {
-        if (!isPlaying) { startGame(); return; }
-        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[e.key.toLowerCase()];
-        if (lane !== undefined) judge(lane);
-    };
+    });
 </script>
 </body>
 </html>
