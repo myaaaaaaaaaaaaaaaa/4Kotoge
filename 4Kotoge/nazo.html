@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V32 Fixed - Resolution & Position</title>
+    <title>V32 - Performance Max</title>
     <style>
         * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
@@ -13,10 +13,9 @@
             border-left: 2px solid #333; border-right: 2px solid #333;
             box-sizing: border-box;
         }
-        /* 判定ラインをさらに下へ移動 */
         .judge-rail {
             position: absolute; width: 100%; height: 2px;
-            background: #0ff; box-shadow: 0 0 10px #0ff; z-index: 10;
+            background: #0ff; z-index: 10;
         }
         #rail-top { bottom: 112px; opacity: 0.6; } 
         #rail-bottom { bottom: 88px; opacity: 0.6; } 
@@ -24,7 +23,11 @@
             position: absolute; width: calc(25% - 6px); height: 24px;
             border-radius: 2px; display: none; z-index: 5;
             will-change: transform;
+            transform: translate3d(0, -100px, 0);
         }
+        .note-white { background: #ffffff; }
+        .note-blue { background: #00bbff; }
+
         #ui { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 20; }
         #judge-text { font-size: 3.5rem; font-weight: 900; height: 4.5rem; }
         #combo { font-size: 4rem; font-weight: bold; }
@@ -46,9 +49,10 @@
     <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
     <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
     <div class="control-row">解像: <select id="inp-res" class="input-box">
-        <option value="2">8分</option> <option value="4">16分</option>
-		<option value="6">24分</option>
-		<option value="8">32分</option>
+        <option value="2">8分</option>
+        <option value="4" selected>16分</option>
+        <option value="6">24分</option>
+        <option value="8">32分</option>
     </select></div>
     <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
 </div>
@@ -64,15 +68,15 @@
     const gameArea = document.getElementById('game-area');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-	let config = { bpm: 120, offset: 120, speed: 11, density: 1, res: 2 }; // resを2にする
+    let config = { bpm: 120, offset: 120, speed: 11, density: 1, res: 4 };
     let lastLanes = [];
-    let isPlaying = false, notes = [], combo = 0, lastCheckTime = 0, subStep = 0;
+    let isPlaying = false, notes = [], activeNotes = [], combo = 0, lastCheckTime = 0, subStep = 0;
 
     for (let i = 0; i < 200; i++) {
         const div = document.createElement('div');
         div.className = 'note';
         container.appendChild(div);
-        notes.push({ el: div, y: -50, lane: 0, active: false, targetTime: 0 });
+        notes.push({ el: div, y: -100, lane: 0, active: false, targetTime: 0 });
     }
 
     function playTick(isDownBeat) {
@@ -102,30 +106,25 @@
         const stepInterval = beatInterval / config.res;
 
         if (now - lastCheckTime > stepInterval) { 
-            // 拍の頭（4分音符ごと）の判定
             const isFullBeat = subStep % config.res === 0;
             const isDownBeat = isFullBeat && (subStep / config.res) % 4 === 0;
-
             if (isFullBeat) playTick(isDownBeat);
-            
-            spawnPattern(now, isDownBeat, subStep);
-            
+            spawnPattern(now, subStep);
             lastCheckTime = now;
             subStep++;
         }
 
-        const judgeCenterY = window.innerHeight - 100; // 判定ラインを下げた位置に調整
+        const judgeCenterY = window.innerHeight - 100;
         const speedFactor = config.speed / 16.6;
 
-        for (let n of notes) {
-            if (!n.active) continue;
+        for (let i = activeNotes.length - 1; i >= 0; i--) {
+            const n = activeNotes[i];
             const timeDiff = (n.targetTime + config.offset) - now;
             n.y = judgeCenterY - (timeDiff * speedFactor) - 12;
             n.el.style.transform = `translate3d(0, ${n.y}px, 0)`;
-            n.el.style.display = 'block';
 
             if (now > (n.targetTime + config.offset) + 100) {
-                n.active = false; n.el.style.display = 'none';
+                deactivateNote(n, i);
                 combo = 0; comboEl.innerText = combo;
                 judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
             }
@@ -133,7 +132,14 @@
         requestAnimationFrame(update);
     }
 
-    function spawnPattern(now, isCurrentDownBeat, currentStep) {
+    function deactivateNote(n, index) {
+        n.active = false;
+        n.el.style.display = 'none';
+        n.el.style.transform = `translate3d(0, -100px, 0)`;
+        activeNotes.splice(index, 1);
+    }
+
+    function spawnPattern(now, currentStep) {
         let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
         let left = [0, 1].sort(() => Math.random() - 0.5);
         let right = [2, 3].sort(() => Math.random() - 0.5);
@@ -147,7 +153,6 @@
         }
 
         lastLanes = [...selected];
-
         const beatInterval = 60000 / config.bpm;
         const stepsToTravel = Math.round(1500 / (beatInterval / config.res));
         const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
@@ -155,31 +160,30 @@
         selected.forEach(laneIdx => {
             const n = notes.find(note => !note.active);
             if(n) {
-                n.active = true; n.lane = laneIdx;
+                n.active = true;
+                n.lane = laneIdx;
                 n.targetTime = now + 1500;
                 n.el.style.left = `calc(${laneIdx * 25}% + 3px)`;
-                
-                if (isArrivalDownBeat) {
-                    n.el.style.backgroundColor = "#00bbff"; 
-                    n.el.style.boxShadow = "0 0 10px #00bbff";
-                } else {
-                    n.el.style.backgroundColor = "#ffffff";
-                    n.el.style.boxShadow = "none";
-                }
+                n.el.className = isArrivalDownBeat ? 'note note-blue' : 'note note-white';
+                n.el.style.display = 'block';
+                activeNotes.push(n);
             }
         });
     }
 
     function judge(lane) {
         const now = performance.now();
-        const target = notes.filter(n => n.active && n.lane === lane).sort((a, b) => a.targetTime - b.targetTime)[0];
-        if (target) {
-            const diff = Math.abs(now - (target.targetTime + config.offset));
-            if (diff < 100) {
-                target.active = false; target.el.style.display = 'none';
-                judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
-                judgeEl.style.color = diff < 33 ? "#0ff" : "#fff";
-                combo++; comboEl.innerText = combo;
+        for (let i = 0; i < activeNotes.length; i++) {
+            const n = activeNotes[i];
+            if (n.lane === lane) {
+                const diff = Math.abs(now - (n.targetTime + config.offset));
+                if (diff < 100) {
+                    deactivateNote(n, i);
+                    judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
+                    judgeEl.style.color = diff < 33 ? "#0ff" : "#fff";
+                    combo++; comboEl.innerText = combo;
+                    break;
+                }
             }
         }
     }
