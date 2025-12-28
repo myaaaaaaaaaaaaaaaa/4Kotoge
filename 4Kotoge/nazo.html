@@ -3,30 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V32 Fixed - Anti-Bias Logic</title>
+    <title>V32 Fixed - Resolution & Position</title>
     <style>
-        * { 
-            -webkit-touch-callout: none; 
-            -webkit-user-select: none; 
-            user-select: none; 
-            -webkit-tap-highlight-color: transparent; 
-        }
+        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
         #game-area {
             position: relative; width: 100%; max-width: 600px; height: 100vh;
-            margin: 0 auto; background: #030305; border-left: 2px solid #333; border-right: 2px solid #333;
+            margin: 0 auto; background-color: #030305;
+            border-left: 2px solid #333; border-right: 2px solid #333;
             box-sizing: border-box;
         }
+        /* 判定ラインをさらに下へ移動 */
         .judge-rail {
             position: absolute; width: 100%; height: 2px;
             background: #0ff; box-shadow: 0 0 10px #0ff; z-index: 10;
         }
-        #rail-top { bottom: 162px; opacity: 0.6; } 
-        #rail-bottom { bottom: 138px; opacity: 0.6; } 
-
+        #rail-top { bottom: 112px; opacity: 0.6; } 
+        #rail-bottom { bottom: 88px; opacity: 0.6; } 
         .note {
             position: absolute; width: calc(25% - 6px); height: 24px;
-            background: #fff; border-radius: 2px; display: none; z-index: 5;
+            border-radius: 2px; display: none; z-index: 5;
             will-change: transform;
         }
         #ui { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 20; }
@@ -36,30 +32,31 @@
             position: absolute; top: 10px; left: 10px; z-index: 30;
             background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; font-size: 14px; border: 1px solid #444;
         }
-        .input-box { background: #222; color: #fff; border: 1px solid #666; width: 55px; padding: 4px; text-align: center; }
         .control-row { margin-bottom: 5px; }
+        .input-box { background: #222; color: #fff; border: 1px solid #666; width: 55px; padding: 4px; text-align: center; }
+        select.input-box { width: 65px; }
     </style>
 </head>
 <body>
-
 <div id="ui">
     <div id="judge-text">START</div>
     <div id="combo">0</div>
 </div>
-
 <div id="controls">
     <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
     <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
+    <div class="control-row">解像: <select id="inp-res" class="input-box">
+        <option value="2">8分</option> <option value="4">16分</option>
+		<option value="6">24分</option>
+		<option value="8">32分</option>
+    </select></div>
     <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
-    <div style="font-size:10px; color:#0ff; margin-top:5px;">PERFECT: ±33.3ms</div>
 </div>
-
 <div id="game-area">
     <div class="judge-rail" id="rail-top"></div>
     <div class="judge-rail" id="rail-bottom"></div>
     <div id="notes-container"></div>
 </div>
-
 <script>
     const container = document.getElementById('notes-container');
     const comboEl = document.getElementById('combo');
@@ -67,14 +64,9 @@
     const gameArea = document.getElementById('game-area');
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    let config = { bpm: 120, offset: 120, speed: 11, density: 1 };
-    let lastLanes = []; // 直前に出現したレーンを記憶
-
-    document.getElementById('inp-bpm').onchange = (e) => { config.bpm = Math.max(1, parseInt(e.target.value)); };
-    document.getElementById('inp-den').onchange = (e) => { config.density = Math.max(1, Math.min(4, parseInt(e.target.value))); };
-    document.getElementById('inp-off').onchange = (e) => { config.offset = parseInt(e.target.value); };
-
-    let isPlaying = false, notes = [], combo = 0, lastBeatTime = 0, beatCount = 0;
+	let config = { bpm: 120, offset: 120, speed: 11, density: 1, res: 2 }; // resを2にする
+    let lastLanes = [];
+    let isPlaying = false, notes = [], combo = 0, lastCheckTime = 0, subStep = 0;
 
     for (let i = 0; i < 200; i++) {
         const div = document.createElement('div');
@@ -88,10 +80,9 @@
         const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.frequency.setValueAtTime(isDownBeat ? 1200 : 800, audioCtx.currentTime);
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(isDownBeat ? 0.12 : 0.06, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     }
 
     function startGame() {
@@ -99,8 +90,8 @@
         audioCtx.resume();
         isPlaying = true;
         judgeEl.innerText = "";
-        lastBeatTime = performance.now();
-        beatCount = 0;
+        lastCheckTime = performance.now();
+        subStep = 0; 
         update();
     }
 
@@ -108,24 +99,28 @@
         if (!isPlaying) return;
         const now = performance.now();
         const beatInterval = 60000 / config.bpm;
-        const spawnInterval = beatInterval / 2;
+        const stepInterval = beatInterval / config.res;
 
-        if (now - lastBeatTime > spawnInterval) {
-            if (beatCount % 2 === 0) {
-                const isDownBeat = (beatCount / 2) % 4 === 0;
-                playTick(isDownBeat);
-            }
-            spawnPattern(now);
-            lastBeatTime = now;
-            beatCount++;
+        if (now - lastCheckTime > stepInterval) { 
+            // 拍の頭（4分音符ごと）の判定
+            const isFullBeat = subStep % config.res === 0;
+            const isDownBeat = isFullBeat && (subStep / config.res) % 4 === 0;
+
+            if (isFullBeat) playTick(isDownBeat);
+            
+            spawnPattern(now, isDownBeat, subStep);
+            
+            lastCheckTime = now;
+            subStep++;
         }
 
-        const judgeCenterY = window.innerHeight - 150; 
+        const judgeCenterY = window.innerHeight - 100; // 判定ラインを下げた位置に調整
+        const speedFactor = config.speed / 16.6;
 
-        notes.forEach(n => {
-            if (!n.active) return;
-            const timeDiff = (n.targetTime + config.offset) - now; 
-            n.y = judgeCenterY - (timeDiff * (config.speed / 16.6)) - 12;
+        for (let n of notes) {
+            if (!n.active) continue;
+            const timeDiff = (n.targetTime + config.offset) - now;
+            n.y = judgeCenterY - (timeDiff * speedFactor) - 12;
             n.el.style.transform = `translate3d(0, ${n.y}px, 0)`;
             n.el.style.display = 'block';
 
@@ -134,44 +129,43 @@
                 combo = 0; comboEl.innerText = combo;
                 judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
             }
-        });
+        }
         requestAnimationFrame(update);
     }
 
-    function spawnPattern(now) {
-        let totalToSpawn = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
-        
-        let leftLanes = [0, 1].sort(() => Math.random() - 0.5);
-        let rightLanes = [2, 3].sort(() => Math.random() - 0.5);
-        let selectedLanes = [];
+    function spawnPattern(now, isCurrentDownBeat, currentStep) {
+        let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
+        let left = [0, 1].sort(() => Math.random() - 0.5);
+        let right = [2, 3].sort(() => Math.random() - 0.5);
+        let selected = [];
 
-        if (totalToSpawn === 1) {
-            // 前回の履歴を見て逆の手を優先
+        if (total === 1) {
             let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
-            if (wasLeft) {
-                // 前回左なら、今回は80%の確率で右にする
-                selectedLanes.push(Math.random() < 0.8 ? rightLanes[0] : leftLanes.find(l => l !== lastLanes[0]));
-            } else {
-                // 前回右なら、今回は80%の確率で左にする
-                selectedLanes.push(Math.random() < 0.8 ? leftLanes[0] : rightLanes.find(l => l !== lastLanes[0]));
-            }
+            selected.push(wasLeft ? (Math.random() < 0.8 ? right[0] : left[1]) : (Math.random() < 0.8 ? left[0] : right[1]));
         } else {
-            // 2つ以上の場合は必ず左右分散
-            selectedLanes.push(leftLanes[0], rightLanes[0]);
-            if (totalToSpawn >= 3) {
-                let remaining = [...leftLanes.slice(1), ...rightLanes.slice(1)].sort(() => Math.random() - 0.5);
-                for(let i = 0; i < totalToSpawn - 2; i++) selectedLanes.push(remaining[i]);
-            }
+            selected.push(left[0], right[0]);
         }
 
-        lastLanes = [...selectedLanes]; // 今回のレーンを保存
+        lastLanes = [...selected];
 
-        selectedLanes.forEach(laneIdx => {
+        const beatInterval = 60000 / config.bpm;
+        const stepsToTravel = Math.round(1500 / (beatInterval / config.res));
+        const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
+
+        selected.forEach(laneIdx => {
             const n = notes.find(note => !note.active);
             if(n) {
                 n.active = true; n.lane = laneIdx;
                 n.targetTime = now + 1500;
-                n.el.style.left = `calc(${n.lane * 25}% + 3px)`;
+                n.el.style.left = `calc(${laneIdx * 25}% + 3px)`;
+                
+                if (isArrivalDownBeat) {
+                    n.el.style.backgroundColor = "#00bbff"; 
+                    n.el.style.boxShadow = "0 0 10px #00bbff";
+                } else {
+                    n.el.style.backgroundColor = "#ffffff";
+                    n.el.style.boxShadow = "none";
+                }
             }
         });
     }
@@ -183,25 +177,20 @@
             const diff = Math.abs(now - (target.targetTime + config.offset));
             if (diff < 100) {
                 target.active = false; target.el.style.display = 'none';
-                if (diff <= 33.33) { judgeEl.innerText = "PERFECT"; judgeEl.style.color = "#0ff"; }
-                else if (diff <= 66.66) { judgeEl.innerText = "GREAT"; judgeEl.style.color = "#ff0"; }
-                else { judgeEl.innerText = "GOOD"; judgeEl.style.color = "#fff"; }
+                judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
+                judgeEl.style.color = diff < 33 ? "#0ff" : "#fff";
                 combo++; comboEl.innerText = combo;
             }
         }
     }
 
-    window.addEventListener('contextmenu', (e) => { e.preventDefault(); }, false);
-
     window.addEventListener('touchstart', (e) => {
-        if (!isPlaying) { startGame(); e.preventDefault(); return; }
+        if (!isPlaying) { startGame(); return; }
         const rect = gameArea.getBoundingClientRect();
         for (let i = 0; i < e.changedTouches.length; i++) {
-            const touchX = e.changedTouches[i].clientX;
-            if (touchX >= rect.left && touchX <= rect.right) {
-                const relativeX = touchX - rect.left;
-                const lane = Math.floor((relativeX / rect.width) * 4);
-                judge(Math.max(0, Math.min(3, lane)));
+            const x = e.changedTouches[i].clientX;
+            if (x >= rect.left && x <= rect.right) {
+                judge(Math.floor(((x - rect.left) / rect.width) * 4));
             }
         }
     }, {passive: false});
@@ -211,6 +200,11 @@
         const lane = {'d':0, 'f':1, 'j':2, 'k':3}[e.key.toLowerCase()];
         if (lane !== undefined) judge(lane);
     };
+
+    document.getElementById('inp-bpm').onchange = (e) => { config.bpm = parseInt(e.target.value) || 120; };
+    document.getElementById('inp-den').onchange = (e) => { config.density = parseInt(e.target.value) || 1; };
+    document.getElementById('inp-off').onchange = (e) => { config.offset = parseInt(e.target.value) || 0; };
+    document.getElementById('inp-res').onchange = (e) => { config.res = parseInt(e.target.value); };
 </script>
 </body>
 </html>
