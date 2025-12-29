@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V32 - Ultra Optimized Performance</title>
+    <title>V33 - Precision Audio Sync</title>
     <style>
         * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
-        
         #game-container {
             position: relative; width: 100%; max-width: 600px; height: 100vh;
             margin: 0 auto; background-color: #030305;
@@ -15,7 +14,6 @@
             box-sizing: border-box;
         }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-
         #controls {
             position: absolute; top: 10px; right: 100%; margin-right: 10px; z-index: 50;
             background: rgba(0,0,0,0.8); padding: 10px; border-radius: 6px;
@@ -23,7 +21,6 @@
         }
         .control-row { margin-bottom: 5px; }
         .input-box { background: #222; color: #fff; border: 1px solid #666; width: 55px; padding: 4px; text-align: center; }
-        
         #ui-overlay { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 40; }
         #judge-text { font-size: 3.5rem; font-weight: 900; height: 4.5rem; }
         #combo { font-size: 4rem; font-weight: bold; }
@@ -58,7 +55,8 @@
     let audioCtx;
 
     let config = { bpm: 120, offset: 120, speed: 11, density: 1, res: 4 };
-    let isPlaying = false, activeNotes = [], combo = 0, lastCheckTime = 0, subStep = 0, lastLanes = [];
+    let isPlaying = false, activeNotes = [], combo = 0, subStep = 0, lastLanes = [];
+    let startTime = 0, nextStepTime = 0;
     let width, height;
 
     function resize() {
@@ -69,24 +67,31 @@
     window.addEventListener('resize', resize);
     resize();
 
-    function playTick(isDownBeat) {
-        if (!audioCtx) return;
+    // 音を鳴らすタイミングを正確に予約する
+    function scheduleTick(timeMs, isDownBeat) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(isDownBeat ? 1200 : 800, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        
+        // AudioContextの絶対秒に変換
+        const targetSec = (timeMs - startTime) / 1000 + audioCtx.currentTime;
+        
+        osc.frequency.setValueAtTime(isDownBeat ? 1200 : 800, targetSec);
+        gain.gain.setValueAtTime(0.05, targetSec);
+        gain.gain.exponentialRampToValueAtTime(0.001, targetSec + 0.05);
+        osc.start(targetSec); osc.stop(targetSec + 0.05);
     }
 
     function startGame() {
         if (isPlaying) return;
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         audioCtx.resume();
         isPlaying = true;
         judgeEl.innerText = "";
-        lastCheckTime = performance.now();
+        
+        // 開始時間を固定する
+        startTime = performance.now();
+        nextStepTime = startTime;
         subStep = 0;
         update();
     }
@@ -97,40 +102,40 @@
         const beatInterval = 60000 / config.bpm;
         const stepInterval = beatInterval / config.res;
 
-        if (now - lastCheckTime > stepInterval) {
+        // 次のステップが来るまでループ（誤差を蓄積させない「追いかけ」処理）
+        while (now > nextStepTime) {
             const isFullBeat = subStep % config.res === 0;
-            if (isFullBeat) playTick((subStep / config.res) % 4 === 0);
-            spawnPattern(now, subStep);
-            lastCheckTime = now;
+            if (isFullBeat) scheduleTick(nextStepTime, (subStep / config.res) % 4 === 0);
+            
+            spawnPattern(nextStepTime, subStep);
+            nextStepTime += stepInterval; // 常に一定の間隔を足し続ける
             subStep++;
         }
 
+        render(now);
+        requestAnimationFrame(update);
+    }
+
+    function render(now) {
         ctx.fillStyle = "#030305";
         ctx.fillRect(0, 0, width, height);
 
-        // 判定ライン（2本線デザイン復元）
-        ctx.strokeStyle = "#0ff";
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.6;
+        // 判定ライン
+        ctx.strokeStyle = "#0ff"; ctx.lineWidth = 2; ctx.globalAlpha = 0.6;
         ctx.beginPath();
         ctx.moveTo(0, height - 112); ctx.lineTo(width, height - 112);
         ctx.moveTo(0, height - 88); ctx.lineTo(width, height - 88);
-        ctx.stroke();
-        ctx.globalAlpha = 1.0;
+        ctx.stroke(); ctx.globalAlpha = 1.0;
 
         const judgeCenterY = height - 100;
         const speedFactor = config.speed / 16.6;
-
-        // 超軽量化：パスの結合
-        const whites = new Path2D();
-        const blues = new Path2D();
+        const whites = new Path2D(), blues = new Path2D();
 
         for (let i = activeNotes.length - 1; i >= 0; i--) {
             const n = activeNotes[i];
             const targetWithOffset = n.targetTime + config.offset;
             const timeDiff = targetWithOffset - now;
             
-            // MISS判定
             if (now > targetWithOffset + 100) {
                 activeNotes.splice(i, 1);
                 combo = 0; comboEl.innerText = combo;
@@ -141,18 +146,14 @@
             const y = judgeCenterY - (timeDiff * speedFactor) - 12;
             const x = n.lane * (width / 4) + 3;
             const w = (width / 4) - 6;
-
-            if (n.isBlue) blues.rect(x, y, w, 24);
-            else whites.rect(x, y, w, 24);
+            if (n.isBlue) blues.rect(x, y, w, 24); else whites.rect(x, y, w, 24);
         }
 
         ctx.fillStyle = "#ffffff"; ctx.fill(whites);
         ctx.fillStyle = "#00bbff"; ctx.fill(blues);
-
-        requestAnimationFrame(update);
     }
 
-    function spawnPattern(now, currentStep) {
+    function spawnPattern(spawnTime, currentStep) {
         let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
         let left = [0, 1].sort(() => Math.random() - 0.5);
         let right = [2, 3].sort(() => Math.random() - 0.5);
@@ -167,11 +168,12 @@
 
         lastLanes = [...selected];
         const beatInterval = 60000 / config.bpm;
-        const stepsToTravel = Math.round(1500 / (beatInterval / config.res));
+        const arrivalDelay = 1500; // 到着までの時間を固定
+        const stepsToTravel = Math.round(arrivalDelay / (beatInterval / config.res));
         const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
 
         selected.forEach(laneIdx => {
-            activeNotes.push({ lane: laneIdx, targetTime: now + 1500, isBlue: isArrivalDownBeat });
+            activeNotes.push({ lane: laneIdx, targetTime: spawnTime + arrivalDelay, isBlue: isArrivalDownBeat });
         });
     }
 
