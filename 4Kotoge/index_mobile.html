@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>4Lane Rhythm - Solid Engine Pro V18 Ultimate Fixed</title>
+    <style>
+        :root { 
+            --accent: #00ffff; 
+            --p-deep: linear-gradient(135deg, #ff0000, #ff00ff, #0000ff); 
+            --p-pale: linear-gradient(135deg, #ffffff, #a0e0ff, #ffffff);
+            --great: #ff69b4; --good: #4caf50; --miss: #808080; --fast: #0000ff; --late: #ff0000; 
+            --note-red: #ff7f7f; --note-blue: #7fbfff; 
+        }
+        body { 
+            background: #000; margin: 0; overflow: hidden; 
+            touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+            font-family: 'Segoe UI', sans-serif; color: white; position: fixed; width: 100%; height: 100%;
+        }
+        #start-screen, #game-screen, #result-screen { width: 100vw; height: 100vh; position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #game-screen, #result-screen { display: none; background: #000; }
+        .menu-card { background: #111; padding: 25px; border-radius: 15px; text-align: center; border: 1px solid #444; width: 420px; max-width: 90%; }
+        .setting-item { margin: 8px 0; text-align: left; }
+        label { font-size: 0.7rem; color: #888; display: block; }
+        select, input { width: 100%; box-sizing: border-box; padding: 8px; background: #222; color: white; border: 1px solid #555; border-radius: 4px; font-size: 16px; }
+        .checkbox-item { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #fff; font-size: 0.9rem; }
+        .checkbox-item input { width: auto; margin: 0; }
+        button { padding: 15px; font-size: 1.1rem; cursor: pointer; background: var(--accent); border: none; border-radius: 5px; margin-top: 10px; font-weight: bold; color: #000; width: 100%; }
+        
+        #game-container { width: 100%; height: 100%; display: flex; position: relative; max-width: 500px; border-left: 5px solid #333; border-right: 5px solid #333; margin: 0 auto; }
+        .lane { flex: 1; border-right: 3px solid #222; position: relative; z-index: 5; }
+        .target-mark { position: absolute; bottom: 85px; width: 84%; left: 8%; height: 45px; border: 2px solid #444; border-radius: 8px; pointer-events: none; }
+        
+        .note { position: absolute; width: 92%; left: 4%; height: 18px; border-radius: 3px; pointer-events: none; will-change: transform; z-index: 10; border: 1px solid rgba(255,255,255,0.2); }
+        .bar-line { position: absolute; width: 100%; height: 4px; background: rgba(255,255,255,0.4); pointer-events: none; will-change: transform; z-index: 2; }
+        
+        .note-lane-0, .note-lane-3 { background: var(--note-red); }
+        .note-lane-1, .note-lane-2 { background: var(--note-blue); }
+        
+        .p-deep-text { background: var(--p-deep); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
+        .p-pale-text { background: var(--p-pale); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; }
+        .great-text { color: var(--great); } .good-text { color: var(--good); } .miss-text { color: var(--miss); }
+        .fast-text { color: var(--fast); } .late-text { color: var(--late); }
+        .combo-ap { background: var(--p-deep); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .combo-fc { color: var(--great); }
+
+        #graph-container { width: 100%; height: 60px; background: #000; margin: 15px 0; position: relative; border: 1px solid #555; overflow: hidden; }
+        .graph-bar { position: absolute; width: 2px; height: 5px; pointer-events: none; }
+        .center-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffff00; z-index: 5; }
+        .border-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #aaa; border-left: 1px dashed #444; z-index: 2; }
+        .stat-line { display: flex; justify-content: space-between; margin: 2px 0; border-bottom: 1px solid #222; font-size: 0.85rem; padding-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div id="countdown" style="position:absolute; font-size:8rem; font-weight:900; z-index:1000; display:none; color:var(--accent); left:50%; top:50%; transform:translate(-50%,-50%);"></div>
+
+    <div id="start-screen">
+        <div class="menu-card">
+            <h2 style="color:var(--accent); margin:0 0 10px 0;">SOLID ENGINE V18 ULTIMATE</h2>
+            <div class="setting-item"><label>練習モード</label><select id="pattern-mode" onchange="save()"><option value="random">完全ランダム</option><option value="stair">階段</option><option value="trill">トリル</option><option value="jack">縦連</option><option value="alt">交互押し</option></select></div>
+            <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>最大同時押し</label><select id="multi-select" onchange="save()"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div><div class="setting-item" style="flex:1;"><label>分割</label><select id="rhythm-select" onchange="save()"><option value="32">32分</option><option value="24">24分</option><option value="16">16分</option><option value="12" selected>12分</option></select></div></div>
+            <div class="setting-item"><label>落下速度: <span id="speed-val">14</span></label><input type="range" id="speed-slider" min="5" max="40" value="14"></div>
+            <div class="setting-item"><label>判定調整 (ms)</label><input type="number" id="offset-ms" value="0.0" step="0.1" onchange="save()"></div>
+            <div style="display:flex; gap:10px;"><div class="setting-item" style="flex:1;"><label>BPM</label><input type="number" id="bpm-input" value="120" onchange="save()"></div><div class="setting-item" style="flex:1;"><label>秒数</label><input type="number" id="length-input" value="30" onchange="save()"></div></div>
+            <div class="setting-item">
+                <label class="checkbox-item">
+                    <input type="checkbox" id="tap-sound-switch" onchange="save()">
+                    <span>タップ音を再生する</span>
+                </label>
+            </div>
+            <button onclick="preStart()">LOAD & START (ENTER)</button>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <div id="top-info" style="position:absolute; top:10px; width:95%; display:flex; justify-content:space-between; font-weight:bold; z-index:100;">
+            <div id="time-left">TIME: --s</div><div id="score-val">000000</div>
+        </div>
+        <div id="ui-layer" style="position:absolute; top:25%; width:100%; text-align:center; pointer-events:none; z-index:50;">
+            <div id="combo" style="font-size:4.5rem; font-weight:900;"></div>
+            <div id="feedback" style="font-size:2.5rem; font-weight:bold;"></div>
+            <div id="timing-info" style="font-size:1rem;"></div>
+        </div>
+        <div id="game-container">
+            <div class="lane" id="lane-0" onpointerdown="judge(0)"><div class="target-mark"></div></div>
+            <div class="lane" id="lane-1" onpointerdown="judge(1)"><div class="target-mark"></div></div>
+            <div class="lane" id="lane-2" onpointerdown="judge(2)"><div class="target-mark"></div></div>
+            <div class="lane" id="lane-3" onpointerdown="judge(3)"><div class="target-mark"></div></div>
+        </div>
+    </div>
+
+    <div id="result-screen">
+        <div class="menu-card" style="width:420px; border:2px solid var(--accent);">
+            <div id="res-status" style="font-size:1.1rem; font-weight:bold;"></div>
+            <div id="res-score" style="font-size:1.8rem; font-weight:bold; color:var(--accent);">000000</div>
+            <div id="res-rank" style="font-size:3.5rem; font-weight:900; font-style:italic; margin: -5px 0;">-</div>
+            <div id="graph-container"></div>
+            <div id="res-stats"></div>
+            <div id="res-timing-detail" style="display:flex; justify-content:space-around; font-size:0.8rem; margin:5px 0; color:#aaa;">
+                <span id="res-fast">FAST: 0</span><span id="res-late">LATE: 0</span>
+            </div>
+            <div id="res-maxcombo" style="font-size:0.9rem; border-top:1px solid #333; padding-top:5px;">MAX COMBO: 0</div>
+            <div id="res-recommend" style="font-size:0.75rem; color:var(--accent); margin-top:8px; background:rgba(255,255,255,0.05); padding:5px; border-radius:4px;"></div>
+            <button onclick="location.reload()">RETRY (ENTER)</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Web API Synth Engine ---
+        let audioCtx;
+        function initAudio() {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function playSynth(f, t, d) {
+            if(!audioCtx) return;
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        }
+        const sfx = {
+            tap: () => playSynth(880, 'triangle', 0.1),
+            tehon: () => playSynth(440, 'sine', 0.15),
+            tempo: () => playSynth(1320, 'square', 0.05)
+        };
+
+        // --- Core Variables ---
+        let speed, bpm, interval, isPlaying = false, isAP = true, isFC = true, isResult = false;
+        let combo = 0, maxCombo = 0, score = 0, stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
+        let notesInLane = [[], [], [], []], allNotesSequence = [], barLinesSequence = [], startTime = 0;
+        let pStep = 0, pSubStep = 0, pLane = 0, pDirection = 1;
+        const targetY = window.innerHeight - 105;
+
+        // --- Persistence ---
+        const save = () => {
+            const d = { 
+                speed: document.getElementById('speed-slider').value, 
+                offset: document.getElementById('offset-ms').value, 
+                bpm: document.getElementById('bpm-input').value, 
+                length: document.getElementById('length-input').value, 
+                multi: document.getElementById('multi-select').value, 
+                rhythm: document.getElementById('rhythm-select').value, 
+                pattern: document.getElementById('pattern-mode').value,
+                tapSound: document.getElementById('tap-sound-switch').checked
+            };
+            localStorage.setItem('rhythmProV18', JSON.stringify(d));
+        };
+
+        const load = () => {
+            const s = JSON.parse(localStorage.getItem('rhythmProV18') || '{}');
+            if(s.speed) {
+                document.getElementById('speed-slider').value = s.speed;
+                document.getElementById('offset-ms').value = s.offset;
+                document.getElementById('bpm-input').value = s.bpm;
+                document.getElementById('length-input').value = s.length;
+                document.getElementById('multi-select').value = s.multi;
+                document.getElementById('rhythm-select').value = s.rhythm;
+                document.getElementById('pattern-mode').value = s.pattern;
+                document.getElementById('speed-val').innerText = s.speed;
+                document.getElementById('tap-sound-switch').checked = s.tapSound === true;
+            } else {
+                document.getElementById('tap-sound-switch').checked = false;
+            }
+        };
+        load();
+        document.getElementById('speed-slider').oninput = function() { document.getElementById('speed-val').innerText = this.value; save(); };
+
+        // --- Sequence Generator ---
+        function createSequence() {
+            allNotesSequence = []; barLinesSequence = [];
+            const mode = document.getElementById('pattern-mode').value, maxMulti = parseInt(document.getElementById('multi-select').value);
+            const totalSec = parseInt(document.getElementById('length-input').value), rDiv = parseInt(document.getElementById('rhythm-select').value);
+            bpm = parseInt(document.getElementById('bpm-input').value);
+            interval = (60 / bpm / (rDiv / 4)) * 1000;
+            let currentTime = 2000; pStep = 0; pSubStep = 0; pLane = 0; pDirection = 1;
+
+            while(currentTime < (totalSec * 1000) + 2000) {
+                if (pStep % rDiv === 0) barLinesSequence.push({ time: currentTime, spawned: false });
+                let lanes = [];
+                if(mode === 'random') {
+                    let count = Math.floor(Math.random() * maxMulti) + 1;
+                    lanes = [0,1,2,3].sort(() => Math.random()-0.5).slice(0, count);
+                } else if(mode === 'stair') {
+                    for(let i=0; i<maxMulti; i++) lanes.push((pLane + i) % 4);
+                    pLane += pDirection;
+                    if(pLane > 4 - maxMulti) { pLane = 4 - maxMulti - 1; pDirection = -1; }
+                    else if(pLane < 0) { pLane = 1; pDirection = 1; }
+                } else if(mode === 'trill') {
+                    if(pStep % 8 === 0) pLane = Math.floor(Math.random() * 2);
+                    let side = (pStep % 2 === 0) ? [pLane] : [pLane + 2];
+                    for(let i=0; i<maxMulti; i++) lanes.push((side[0] + i) % 4);
+                } else if(mode === 'jack') {
+                    if(pSubStep <= 0) { pSubStep = Math.floor(Math.random() * 3) + 2; pLane = Math.floor(Math.random() * (5-maxMulti)); }
+                    for(let i=0; i<maxMulti; i++) lanes.push(pLane + i);
+                    pSubStep--;
+                } else if(mode === 'alt') {
+                    let pairs = [[0,3], [1,2], [0,1], [2,3]];
+                    if(pStep % 8 === 0) pSubStep = Math.floor(Math.random() * pairs.length);
+                    let base = (pStep % 2 === 0) ? pairs[pSubStep][0] : pairs[pSubStep][1];
+                    for(let i=0; i<maxMulti; i++) lanes.push((base + i) % 4);
+                }
+                lanes.forEach(l => { allNotesSequence.push({ time: currentTime, lane: l, spawned: false, judged: false }); });
+                currentTime += interval; pStep++;
+            }
+        }
+
+        function preStart() {
+            if(isPlaying || isResult) return; initAudio(); save(); createSequence();
+            document.getElementById('start-screen').style.display = 'none';
+            const ce = document.getElementById('countdown'); ce.style.display = 'block';
+            let c = 3; 
+            const cd = setInterval(() => { 
+                ce.innerText = c > 0 ? c : "GO!"; 
+                if(c-- < 0) { clearInterval(cd); ce.style.display='none'; startGame(); } 
+            }, 500);
+        }
+
+        function startGame() {
+            isPlaying = true; notesInLane = [[], [], [], []];
+            combo = 0; maxCombo = 0; score = 0; isAP = true; isFC = true;
+            stats = { deepP:0, paleP:0, great:0, good:0, miss:0, fast:0, late:0, diffs: [] };
+            speed = parseInt(document.getElementById('speed-slider').value);
+            document.getElementById('game-screen').style.display = 'flex';
+            startTime = performance.now();
+            let rem = parseInt(document.getElementById('length-input').value);
+            const ti = setInterval(() => { 
+                if(!isPlaying) { clearInterval(ti); return; } 
+                if(--rem <= 0) { clearInterval(ti); endGame(); } 
+                document.getElementById('time-left').innerText = `TIME: ${rem}s`; 
+            }, 1000);
+            requestAnimationFrame(update);
+        }
+
+        function update(now) {
+            if(!isPlaying) return;
+            const elapsed = now - startTime, offsetMs = parseFloat(document.getElementById('offset-ms').value);
+
+            barLinesSequence.forEach(b => {
+                if(!b.spawned && b.time <= elapsed + 1000) {
+                    const el = document.createElement('div'); el.className = 'bar-line';
+                    document.getElementById('game-container').appendChild(el);
+                    b.el = el; b.spawned = true;
+                    setTimeout(() => { if(isPlaying) sfx.tempo(); }, Math.max(0, b.time - elapsed));
+                }
+                if(b.spawned && b.el) {
+                    const y = targetY - ((b.time - (elapsed - offsetMs)) * (speed * 60) / 1000);
+                    b.el.style.transform = `translate3d(0, ${y}px, 0)`;
+                    if(y > window.innerHeight) { b.el.remove(); b.el = null; }
+                }
+            });
+
+            allNotesSequence.forEach(n => {
+                if(!n.spawned && n.time <= elapsed + 1000) {
+                    const el = document.createElement('div');
+                    el.className = `note ${(n.lane % 2 === 0) ? 'note-lane-0' : 'note-lane-1'}`;
+                    document.getElementById(`lane-${n.lane}`).appendChild(el);
+                    n.el = el; n.spawned = true;
+                    notesInLane[n.lane].push(n);
+                    setTimeout(() => { if(isPlaying) sfx.tehon(); }, Math.max(0, n.time - elapsed));
+                }
+            });
+
+            notesInLane.forEach(lane => {
+                for (let i = lane.length - 1; i >= 0; i--) {
+                    const n = lane[i];
+                    if(n.judged) continue;
+                    const diff = n.time - (elapsed - offsetMs);
+                    const y = targetY - (diff * (speed * 60) / 1000);
+                    n.el.style.transform = `translate3d(0, ${y}px, 0)`;
+                    if(diff < -150) {
+                        n.judged = true; combo = 0; isAP = isFC = false; stats.miss++;
+                        setUI("MISS", "miss-text", "", "");
+                        n.el.remove(); lane.splice(i, 1);
+                    }
+                }
+            });
+            requestAnimationFrame(update);
+        }
+
+        function judge(l) {
+            if(!isPlaying) return;
+            if(document.getElementById('tap-sound-switch').checked) sfx.tap();
+            const now = performance.now() - startTime, offsetMs = parseFloat(document.getElementById('offset-ms').value);
+            const lane = notesInLane[l]; if(!lane.length) return;
+            const n = lane[0], diff = n.time - (now - offsetMs), abs = Math.abs(diff);
+
+            if(abs < 150) {
+                let r = "PERFECT", cls = "";
+                if(abs < 20) { cls = "p-deep-text"; stats.deepP++; }
+                else if(abs < 45) { cls = "p-pale-text"; stats.paleP++; }
+                else if(abs < 80) { r = "GREAT"; cls = "great-text"; stats.great++; isAP = false; }
+                else { r = "GOOD"; cls = "good-text"; stats.good++; isAP = isFC = false; }
+                
+                stats.diffs.push(diff);
+                if(diff > 5) stats.fast++; else if(diff < -5) stats.late++;
+                score += (abs < 20 ? 1000 : (abs < 45 ? 900 : 500)); 
+                combo++; maxCombo = Math.max(maxCombo, combo);
+                setUI(r, cls, diff > 5 ? "FAST" : (diff < -5 ? "LATE" : ""), Math.abs(Math.round(diff)));
+                n.judged = true; n.el.remove(); lane.shift();
+            }
+        }
+
+        function setUI(txt, cls, s, ms) {
+            const f = document.getElementById('feedback'), c = document.getElementById('combo'), t = document.getElementById('timing-info');
+            f.innerText = txt; f.className = cls;
+            c.innerText = combo; c.className = isAP ? "combo-ap" : (isFC ? "combo-fc" : "");
+            t.innerHTML = s ? `<span class="${s.toLowerCase()}-text">${s}</span> ${ms}ms` : "";
+            document.getElementById('score-val').innerText = score.toString().padStart(6,'0');
+        }
+
+        function endGame() {
+            isPlaying = false; isResult = true;
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'flex';
+            const total = stats.deepP + stats.paleP + stats.great + stats.good + stats.miss;
+            const acc = total === 0 ? 0 : ((stats.deepP + stats.paleP + stats.great*0.5 + stats.good*0.2)/total*100).toFixed(2);
+            
+            const statusEl = document.getElementById('res-status');
+            if(isAP && total > 0) { statusEl.innerText = "ALL PERFECT"; statusEl.className = "p-deep-text"; }
+            else if(isFC && total > 0) { statusEl.innerText = "FULL COMBO"; statusEl.className = "combo-fc"; }
+            else { statusEl.innerText = "CLEARED"; statusEl.className = ""; }
+
+            document.getElementById('res-score').innerText = score.toString().padStart(6,'0');
+            document.getElementById('res-rank').innerText = acc >= 99 ? "SSS" : (acc >= 95 ? "SS" : (acc >= 90 ? "S" : "A"));
+            document.getElementById('res-maxcombo').innerText = `MAX COMBO: ${maxCombo}`;
+            document.getElementById('res-stats').innerHTML = `<div class="stat-line"><span class="p-deep-text">PERFECT (Deep)</span><span>${stats.deepP}</span></div><div class="stat-line"><span class="p-pale-text">PERFECT (Pale)</span><span>${stats.paleP}</span></div><div class="stat-line"><span class="great-text">GREAT</span><span>${stats.great}</span></div><div class="stat-line"><span class="good-text">GOOD</span><span>${stats.good}</span></div><div class="stat-line"><span class="miss-text">MISS</span><span>${stats.miss}</span></div>`;
+
+            const container = document.getElementById('graph-container');
+            container.innerHTML = '<div class="center-line"></div><div class="border-line" style="left:25%"></div><div class="border-line" style="left:75%"></div>'; 
+            stats.diffs.forEach((d, i) => {
+                const dot = document.createElement('div'); dot.className = 'graph-bar';
+                dot.style.background = Math.abs(d) < 20 ? 'var(--accent)' : (Math.abs(d) < 80 ? '#ff69b4' : '#fff');
+                dot.style.bottom = (i % 10) * 6 + "px"; 
+                dot.style.left = Math.min(Math.max(((d + 100) / 200) * 100, 0), 100) + "%"; 
+                container.appendChild(dot);
+            });
+            document.getElementById('res-fast').innerText = `FAST: ${stats.fast}`;
+            document.getElementById('res-late').innerText = `LATE: ${stats.late}`;
+            const avg = stats.diffs.length ? (stats.diffs.reduce((a,b)=>a+b,0) / stats.diffs.length) : 0;
+            const currentOffset = parseFloat(document.getElementById('offset-ms').value) || 0;
+            document.getElementById('res-recommend').innerText = `誤差平均: ${avg.toFixed(2)}ms | 推奨判定: ${(currentOffset - avg).toFixed(1)}ms`;
+        }
+
+        window.addEventListener('keydown', e => {
+            if(e.key === 'Enter') {
+                if(!isPlaying && !isResult) preStart();
+                else if(isResult) location.reload();
+            }
+            if(isPlaying) {
+                const idx = ['d','f','j','k'].indexOf(e.key.toLowerCase());
+                if(idx !== -1) judge(idx);
+            }
+        });
+        document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    </script>
+</body>
+</html>

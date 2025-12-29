@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>V32 - Ultra Optimized Performance</title>
+    <style>
+        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
+        
+        #game-container {
+            position: relative; width: 100%; max-width: 600px; height: 100vh;
+            margin: 0 auto; background-color: #030305;
+            border-left: 2px solid #333; border-right: 2px solid #333;
+            box-sizing: border-box;
+        }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        #controls {
+            position: absolute; top: 10px; right: 100%; margin-right: 10px; z-index: 50;
+            background: rgba(0,0,0,0.8); padding: 10px; border-radius: 6px;
+            font-size: 13px; border: 1px solid #444; white-space: nowrap;
+        }
+        .control-row { margin-bottom: 5px; }
+        .input-box { background: #222; color: #fff; border: 1px solid #666; width: 55px; padding: 4px; text-align: center; }
+        
+        #ui-overlay { position: absolute; top: 15%; width: 100%; text-align: center; pointer-events: none; z-index: 40; }
+        #judge-text { font-size: 3.5rem; font-weight: 900; height: 4.5rem; }
+        #combo { font-size: 4rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">
+        <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
+        <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
+        <div class="control-row">解像: <select id="inp-res" class="input-box">
+            <option value="2">8分</option>
+            <option value="4" selected>16分</option>
+            <option value="6">24分</option>
+            <option value="8">32分</option>
+        </select></div>
+        <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
+    </div>
+    <div id="ui-overlay">
+        <div id="judge-text">START</div>
+        <div id="combo">0</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const comboEl = document.getElementById('combo');
+    const judgeEl = document.getElementById('judge-text');
+    let audioCtx;
+
+    let config = { bpm: 120, offset: 120, speed: 11, density: 1, res: 4 };
+    let isPlaying = false, activeNotes = [], combo = 0, lastCheckTime = 0, subStep = 0, lastLanes = [];
+    let width, height;
+
+    function resize() {
+        const rect = canvas.parentNode.getBoundingClientRect();
+        width = canvas.width = rect.width;
+        height = canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function playTick(isDownBeat) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(isDownBeat ? 1200 : 800, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+    }
+
+    function startGame() {
+        if (isPlaying) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.resume();
+        isPlaying = true;
+        judgeEl.innerText = "";
+        lastCheckTime = performance.now();
+        subStep = 0;
+        update();
+    }
+
+    function update() {
+        if (!isPlaying) return;
+        const now = performance.now();
+        const beatInterval = 60000 / config.bpm;
+        const stepInterval = beatInterval / config.res;
+
+        if (now - lastCheckTime > stepInterval) {
+            const isFullBeat = subStep % config.res === 0;
+            if (isFullBeat) playTick((subStep / config.res) % 4 === 0);
+            spawnPattern(now, subStep);
+            lastCheckTime = now;
+            subStep++;
+        }
+
+        ctx.fillStyle = "#030305";
+        ctx.fillRect(0, 0, width, height);
+
+        // 判定ライン（2本線デザイン復元）
+        ctx.strokeStyle = "#0ff";
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(0, height - 112); ctx.lineTo(width, height - 112);
+        ctx.moveTo(0, height - 88); ctx.lineTo(width, height - 88);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+
+        const judgeCenterY = height - 100;
+        const speedFactor = config.speed / 16.6;
+
+        // 超軽量化：パスの結合
+        const whites = new Path2D();
+        const blues = new Path2D();
+
+        for (let i = activeNotes.length - 1; i >= 0; i--) {
+            const n = activeNotes[i];
+            const targetWithOffset = n.targetTime + config.offset;
+            const timeDiff = targetWithOffset - now;
+            
+            // MISS判定
+            if (now > targetWithOffset + 100) {
+                activeNotes.splice(i, 1);
+                combo = 0; comboEl.innerText = combo;
+                judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
+                continue;
+            }
+
+            const y = judgeCenterY - (timeDiff * speedFactor) - 12;
+            const x = n.lane * (width / 4) + 3;
+            const w = (width / 4) - 6;
+
+            if (n.isBlue) blues.rect(x, y, w, 24);
+            else whites.rect(x, y, w, 24);
+        }
+
+        ctx.fillStyle = "#ffffff"; ctx.fill(whites);
+        ctx.fillStyle = "#00bbff"; ctx.fill(blues);
+
+        requestAnimationFrame(update);
+    }
+
+    function spawnPattern(now, currentStep) {
+        let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
+        let left = [0, 1].sort(() => Math.random() - 0.5);
+        let right = [2, 3].sort(() => Math.random() - 0.5);
+        let selected = [];
+
+        if (total === 1) {
+            let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
+            selected.push(wasLeft ? (Math.random() < 0.8 ? right[0] : left[1]) : (Math.random() < 0.8 ? left[0] : right[1]));
+        } else {
+            selected.push(left[0], right[0]);
+        }
+
+        lastLanes = [...selected];
+        const beatInterval = 60000 / config.bpm;
+        const stepsToTravel = Math.round(1500 / (beatInterval / config.res));
+        const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
+
+        selected.forEach(laneIdx => {
+            activeNotes.push({ lane: laneIdx, targetTime: now + 1500, isBlue: isArrivalDownBeat });
+        });
+    }
+
+    function judge(lane) {
+        const now = performance.now();
+        for (let i = 0; i < activeNotes.length; i++) {
+            const n = activeNotes[i];
+            if (n.lane === lane) {
+                const diff = Math.abs(now - (n.targetTime + config.offset));
+                if (diff < 100) {
+                    activeNotes.splice(i, 1);
+                    judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
+                    judgeEl.style.color = diff < 33 ? "#0ff" : "#fff";
+                    combo++; comboEl.innerText = combo;
+                    break;
+                }
+            }
+        }
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (!isPlaying) { startGame(); return; }
+        const rect = canvas.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const x = e.changedTouches[i].clientX - rect.left;
+            judge(Math.floor((x / rect.width) * 4));
+        }
+    }, {passive: false});
+
+    window.onkeydown = (e) => {
+        if (!isPlaying) { startGame(); return; }
+        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[e.key.toLowerCase()];
+        if (lane !== undefined) judge(lane);
+    };
+
+    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
+    document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
+    document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
+    document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
+</script>
+</body>
+</html>
