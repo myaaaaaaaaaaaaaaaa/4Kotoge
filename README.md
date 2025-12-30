@@ -1,7 +1,9 @@
 # 4Kotoge
 
 上から落ちてくるだけの音ゲー（？）。
-EatKano(https://github.com/arcxingye/EatKano?tab=readme-ov-file)が面白かったのでローカルで実行可能なhtml(js)ゲームを生成した。（AIが）
+EatKanoが面白かったのでローカルで実行可能なhtml(js)ゲームを生成した。（AIが）
+
+https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
 製作日数合計
 3日くらい
