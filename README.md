@@ -3,7 +3,7 @@
 上から落ちてくるだけの音ゲー（？）。
 EatKanoが面白かったのでローカルで実行可能なhtml(js)ゲームを生成した。（AIが）
 
-https://github.com/arcxingye/EatKano?tab=readme-ov-file
+EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
 製作日数合計
 3日くらい
