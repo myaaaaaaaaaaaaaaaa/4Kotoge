@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>V33 Final - Advanced Pattern Logic</title>
+    <title>V33 - Optimized Preset</title>
     <style>
         * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
@@ -98,12 +98,10 @@
     function update() {
         if (!isPlaying) return;
         const now = performance.now();
-        const beatInterval = 60000 / config.bpm;
-        const stepInterval = beatInterval / config.res;
+        const stepInterval = 60000 / config.bpm / config.res;
 
         if (now - lastStepTime > stepInterval) {
-            const isFullBeat = subStep % config.res === 0;
-            if (isFullBeat) playTick((subStep / config.res) % 4 === 0);
+            if (subStep % config.res === 0) playTick((subStep / config.res) % 4 === 0);
             spawnPattern(now, subStep);
             lastStepTime = now;
             subStep++;
@@ -119,7 +117,7 @@
         ctx.beginPath();
         ctx.moveTo(0, height - 112); ctx.lineTo(width, height - 112);
         ctx.moveTo(0, height - 88); ctx.lineTo(width, height - 88);
-        ctx.stroke(); ctx.globalAlpha = 1.0;
+        ctx.stroke();
 
         const judgeCenterY = height - 100;
         const speedFactor = config.speed / 16.6;
@@ -127,9 +125,9 @@
 
         for (let i = activeNotes.length - 1; i >= 0; i--) {
             const n = activeNotes[i];
-            const targetWithOffset = n.targetTime + config.offset;
-            const timeDiff = targetWithOffset - now;
-            if (now > targetWithOffset + 100) {
+            const target = n.targetTime + config.offset;
+            const timeDiff = target - now;
+            if (now > target + 100) {
                 activeNotes.splice(i, 1);
                 combo = 0; comboEl.innerText = combo;
                 judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
@@ -140,7 +138,7 @@
             const w = (width / 4) - 6;
             if (n.isBlue) blues.rect(x, y, w, 24); else whites.rect(x, y, w, 24);
         }
-        ctx.fillStyle = "#ffffff"; ctx.fill(whites);
+        ctx.globalAlpha = 1.0; ctx.fillStyle = "#ffffff"; ctx.fill(whites);
         ctx.fillStyle = "#00bbff"; ctx.fill(blues);
     }
 
@@ -152,17 +150,13 @@
         if (total === 1) {
             let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
             let targetHandLanes = (Math.random() < 0.8) ? (wasLeft ? rightLanes : leftLanes) : (wasLeft ? leftLanes : rightLanes);
-            
             let candidate;
             if (config.type === 'speed') {
                 let filtered = targetHandLanes.filter(l => !lastLanes.includes(l));
-                candidate = filtered[Math.floor(Math.random() * filtered.length)];
-                if (candidate === undefined) candidate = [0,1,2,3].filter(l => !lastLanes.includes(l))[0];
+                candidate = filtered[Math.floor(Math.random() * filtered.length)] ?? [0,1,2,3].filter(l => !lastLanes.includes(l))[0];
             } else if (config.type === 'jack') {
                 candidate = targetHandLanes[Math.floor(Math.random() * targetHandLanes.length)];
-                if (laneCountArray[candidate] >= 3) {
-                    candidate = targetHandLanes.find(l => l !== candidate) || (candidate + 1) % 4;
-                }
+                if (laneCountArray[candidate] >= 3) candidate = targetHandLanes.find(l => l !== candidate) || (candidate + 1) % 4;
             } else {
                 candidate = targetHandLanes[Math.floor(Math.random() * targetHandLanes.length)];
             }
@@ -174,8 +168,7 @@
             } else if (config.type === 'jack') {
                 let axis = lastLanes[Math.floor(Math.random() * lastLanes.length)] ?? 0;
                 if (laneCountArray[axis] >= 3) axis = (axis < 2) ? leftLanes.find(l=>l!==axis) : rightLanes.find(l=>l!==axis);
-                let otherHand = (axis < 2) ? rightLanes : leftLanes;
-                selected.push(axis, otherHand[Math.floor(Math.random() * 2)]);
+                selected.push(axis, ((axis < 2) ? rightLanes : leftLanes)[Math.floor(Math.random() * 2)]);
             } else {
                 selected.push(leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]);
             }
@@ -183,14 +176,9 @@
 
         laneCountArray = laneCountArray.map((count, idx) => selected.includes(idx) ? count + 1 : 0);
         lastLanes = [...selected];
-
         const arrivalDelay = 1500;
-        const stepsToTravel = Math.round(arrivalDelay / (60000 / config.bpm / config.res));
-        const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
-
-        selected.forEach(laneIdx => {
-            activeNotes.push({ lane: laneIdx, targetTime: spawnTime + arrivalDelay, isBlue: isArrivalDownBeat });
-        });
+        const isArrivalDownBeat = (currentStep + Math.round(arrivalDelay / (60000 / config.bpm / config.res))) % (config.res * 4) === 0;
+        selected.forEach(laneIdx => activeNotes.push({ lane: laneIdx, targetTime: spawnTime + arrivalDelay, isBlue: isArrivalDownBeat }));
     }
 
     function judge(lane) {
@@ -225,11 +213,34 @@
         if (lane !== undefined) judge(lane);
     };
 
-    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
-    document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
+    // UI要素の取得
+    const uiBpm = document.getElementById('inp-bpm');
+    const uiDen = document.getElementById('inp-den');
+    const uiRes = document.getElementById('inp-res');
+
+    // プリセット適用関数
+    function applyPreset(type) {
+        if (type === 'speed') {
+            config.bpm = 180; config.res = 8; config.density = 1;
+        } else if (type === 'jack') {
+            config.bpm = 120; config.res = 4; config.density = 2;
+        } else {
+            config.bpm = 140; config.res = 4; config.density = 1;
+        }
+        // UI側の表示も同期させます
+        uiBpm.value = config.bpm;
+        uiDen.value = config.density;
+        uiRes.value = config.res;
+    }
+
+    uiBpm.onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
+    uiDen.onchange = (e) => config.density = parseInt(e.target.value) || 1;
+    uiRes.onchange = (e) => config.res = parseInt(e.target.value);
     document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
-    document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
-    document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
+    document.getElementById('inp-type').onchange = (e) => {
+        config.type = e.target.value;
+        applyPreset(config.type);
+    };
 </script>
 </body>
 </html>
