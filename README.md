@@ -5,8 +5,7 @@ EatKanoが面白かったのでローカルで実行可能なhtml(js)ゲーム�
 
 EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
-製作日数合計
-3日くらい
+製作日数合計：3日くらい
 
 ### ゲームの詳細
 
@@ -23,3 +22,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 
 こっちは自動でおすすめの設定にしてくれるもののベータ版
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
+
+### 今後
+5K~10Kまで作れるかも　と今思った　モード別の処理分け大変そう
+###
