@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>V40 - Unified Advanced Logic</title>
+    <style>
+        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
+        #game-container {
+            position: relative; width: 100%; max-width: 600px; height: 100vh;
+            margin: 0 auto; background: radial-gradient(circle at 50% 15%, #0d1a2d 0%, #000 70%);
+            border-left: 2px solid #444; border-right: 2px solid #444;
+            box-sizing: border-box; overflow: hidden;
+        }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #controls {
+            position: absolute; top: 10px; left: 10px; z-index: 50;
+            background: rgba(0,0,0,0.85); padding: 10px; border-radius: 6px;
+            font-size: 11px; border: 1px solid #444; opacity: 0.1; transition: opacity 0.3s;
+        }
+        #controls:hover { opacity: 1.0; }
+        .control-row { margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
+        .input-box { background: #222; color: #0ff; border: 1px solid #666; width: 60px; padding: 2px; text-align: center; margin-left: 10px; }
+        #ui-overlay { position: absolute; top: 20%; width: 100%; text-align: center; pointer-events: none; z-index: 40; }
+        #judge-text { font-size: 1rem; font-weight: 900; height: 4rem; text-shadow: 0 0 10px rgba(0,255,255,0.8); }
+        #combo { font-size: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">
+        <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
+        <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
+        <div class="control-row">速度: <input type="number" id="inp-spd" class="input-box" value="12"></div>
+        <div class="control-row">タイプ: <select id="inp-type" class="input-box">
+            <option value="stream" selected>stream</option>
+            <option value="speed">speed</option>
+            <option value="jack">jack</option>
+        </select></div>
+        <div class="control-row">解像: <select id="inp-res" class="input-box">
+            <option value="2">8分</option>
+            <option value="4" selected>16分</option>
+            <option value="8">32分</option>
+        </select></div>
+        <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
+    </div>
+    <div id="ui-overlay">
+        <div id="judge-text"></div>
+        <div id="combo">0</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const comboEl = document.getElementById('combo');
+    const judgeEl = document.getElementById('judge-text');
+    let audioCtx;
+
+    let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream' };
+    let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
+    let laneCountArray = [0, 0, 0, 0]; 
+    let lastStepTime = 0, width, height;
+
+    // パース設定
+    const VANISHING_Y = 10; 
+    const JUDGE_LINE_Y_RATIO = 0.88;
+    const Z_COEFF = 2; 
+
+    const STYLE_14 = { main: "#00f7ff", border: "#008888" };
+    const STYLE_23 = { main: "#0066ff", border: "#0033aa" };
+
+    function resize() {
+        const rect = canvas.parentNode.getBoundingClientRect();
+        width = canvas.width = rect.width;
+        height = canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function playTick(isDownBeat) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(isDownBeat ? 1000 : 600, audioCtx.currentTime);
+        gain.gain.setValueAtTime(isDownBeat ? 0.04 : 0.015, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+    }
+
+    function zToY(z) {
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
+        // 判定ライン通過後の逆流（上部への吹き飛び）を物理的にカット
+        const safeZ = Math.max(z, -0.08); 
+        return VANISHING_Y + (judgeY - VANISHING_Y) * (1 / (1 + safeZ * Z_COEFF));
+    }
+
+    function getPerspectiveX(xRaw, y) {
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
+        const scale = (y - VANISHING_Y) / (judgeY - VANISHING_Y);
+        const centerX = width / 2;
+        return centerX + (xRaw - width / 2) * scale;
+    }
+
+    function drawNote(lane, z, isBlue) {
+        const yBase = zToY(z);
+        const yTop = zToY(z + 0.015);
+        const laneW = width / 4;
+        const xCenterRaw = (lane + 0.5) * laneW;
+        const wRaw = laneW * 0.94;
+        const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
+
+        const xLb = getPerspectiveX(xCenterRaw - wRaw / 2, yBase);
+        const xRb = getPerspectiveX(xCenterRaw + wRaw / 2, yBase);
+        const xLt = getPerspectiveX(xCenterRaw - wRaw / 2, yTop);
+        const xRt = getPerspectiveX(xCenterRaw + wRaw / 2, yTop);
+
+        ctx.beginPath();
+        ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
+        ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
+        ctx.closePath();
+
+        ctx.fillStyle = isBlue ? "#00bbff" : style.main;
+        ctx.fill();
+        ctx.strokeStyle = style.border;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    function render(now) {
+        ctx.fillStyle = "#030305";
+        ctx.fillRect(0, 0, width, height);
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
+
+        // レーンセパレーター
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.15)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(getPerspectiveX(i * (width/4), zToY(1.8)), zToY(1.8));
+            ctx.lineTo(getPerspectiveX(i * (width/4), height), height);
+            ctx.stroke();
+        }
+
+        // 判定枠の描画（多層フレーム）
+        for (let i = 0; i < 4; i++) {
+            const xL = getPerspectiveX(i * (width / 4), judgeY);
+            const xR = getPerspectiveX((i + 1) * (width / 4), judgeY);
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
+            ctx.strokeRect(xL + 2, judgeY - 6, (xR - xL) - 4, 12);
+        }
+        ctx.strokeStyle = "#0ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(getPerspectiveX(0, judgeY), judgeY);
+        ctx.lineTo(getPerspectiveX(width, judgeY), judgeY);
+        ctx.stroke();
+
+        // エフェクト
+        for (let i = effects.length - 1; i >= 0; i--) {
+            const e = effects[i];
+            ctx.fillStyle = `rgba(0, 255, 255, ${e.life * 0.35})`;
+            const xL = getPerspectiveX(e.lane * (width / 4), judgeY);
+            const xR = getPerspectiveX((e.lane + 1) * (width / 4), judgeY);
+            ctx.fillRect(xL, judgeY - 45, xR - xL, 45);
+            e.life -= 0.1;
+            if (e.life <= 0) effects.splice(i, 1);
+        }
+
+        const travelSpeed = config.speed * 0.0001;
+        for (let i = activeNotes.length - 1; i >= 0; i--) {
+            const n = activeNotes[i];
+            const targetTime = n.targetTime + config.offset;
+            const timeDiff = targetTime - now;
+
+            if (now > targetTime + 150) {
+                activeNotes.splice(i, 1);
+                combo = 0; comboEl.innerText = "0";
+                judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
+                continue;
+            }
+
+            const z = timeDiff * travelSpeed;
+            if (z < 2.0) drawNote(n.lane, z, n.isBlue);
+        }
+    }
+
+    // V33から復元された高度なパターン生成ロジック
+    function spawnPattern(spawnTime, currentStep) {
+        let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
+        let selected = [];
+        const leftLanes = [0, 1], rightLanes = [2, 3];
+
+        if (total === 1) {
+            let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
+            // 80%の確率で逆の手のレーンを選ぶ（分散）
+            let targetHand = (Math.random() < 0.8) ? (wasLeft ? rightLanes : leftLanes) : (wasLeft ? leftLanes : rightLanes);
+            
+            let candidate;
+            if (config.type === 'speed') {
+                let filtered = targetHand.filter(l => !lastLanes.includes(l));
+                candidate = filtered[Math.floor(Math.random() * filtered.length)];
+                if (candidate === undefined) candidate = [0,1,2,3].filter(l => !lastLanes.includes(l))[0];
+            } else if (config.type === 'jack') {
+                candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
+                // 同一レーン3連続制限の適用
+                if (laneCountArray[candidate] >= 3) {
+                    candidate = targetHand.find(l => l !== candidate) || (candidate + 1) % 4;
+                }
+            } else { // stream
+                candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
+            }
+            selected.push(candidate);
+        } else {
+            // 2枚以上の場合
+            if (config.type === 'speed') {
+                selected = [leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]].filter(l => !lastLanes.includes(l));
+                if (selected.length < 2) selected = [0, 1, 2, 3].filter(l => !lastLanes.includes(l)).slice(0, 2);
+            } else if (config.type === 'jack') {
+                let axis = lastLanes[Math.floor(Math.random() * lastLanes.length)] ?? 0;
+                if (laneCountArray[axis] >= 3) axis = (axis < 2) ? leftLanes.find(l=>l!==axis) : rightLanes.find(l=>l!==axis);
+                let otherHand = (axis < 2) ? rightLanes : leftLanes;
+                selected.push(axis, otherHand[Math.floor(Math.random() * 2)]);
+            } else { // stream
+                selected.push(leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]);
+            }
+        }
+
+        laneCountArray = laneCountArray.map((count, idx) => selected.includes(idx) ? count + 1 : 0);
+        lastLanes = [...selected];
+
+        const arrivalDelay = 2000;
+        const stepsToTravel = Math.round(arrivalDelay / (60000 / config.bpm / config.res));
+        const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
+
+        selected.forEach(laneIdx => {
+            activeNotes.push({ lane: laneIdx, targetTime: spawnTime + arrivalDelay, isBlue: isArrivalDownBeat });
+        });
+    }
+
+    function judge(lane) {
+        const now = performance.now();
+        for (let i = 0; i < activeNotes.length; i++) {
+            const n = activeNotes[i];
+            if (n.lane === lane) {
+                const diff = Math.abs(now - (n.targetTime + config.offset));
+                if (diff < 120) {
+                    activeNotes.splice(i, 1);
+                    effects.push({ lane, life: 1.0 });
+                    const isPerf = diff < 35;
+                    judgeEl.innerText = isPerf ? "PERFECT" : (diff < 70 ? "GREAT" : "GOOD");
+                    judgeEl.style.color = isPerf ? "#0ff" : "#fff";
+                    combo++; comboEl.innerText = combo;
+                    break;
+                }
+            }
+        }
+    }
+
+    function update() {
+        if (!isPlaying) return;
+        const now = performance.now();
+        const stepInterval = (60000 / config.bpm) / config.res;
+        if (now - lastStepTime > stepInterval) {
+            if (subStep % config.res === 0) playTick((subStep / config.res) % 4 === 0);
+            spawnPattern(now, subStep);
+            lastStepTime = now;
+            subStep++;
+        }
+        render(now);
+        requestAnimationFrame(update);
+    }
+
+    function start() {
+        if (isPlaying) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        isPlaying = true; update();
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (!isPlaying) start();
+        const rect = canvas.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const x = e.changedTouches[i].clientX - rect.left;
+            judge(Math.floor((x / rect.width) * 4));
+        }
+    }, {passive: false});
+
+    window.onkeydown = (e) => {
+        if (!isPlaying) start();
+        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[e.key.toLowerCase()];
+        if (lane !== undefined) judge(lane);
+    };
+
+    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
+    document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
+    document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 12;
+    document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
+    document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
+    document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
+</script>
+</body>
+</html>
