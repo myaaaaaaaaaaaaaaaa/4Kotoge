@@ -24,13 +24,17 @@ Googleや特にSafariだとダブルタップで拡大されちゃうかも　�
 ### リンク
 
 
-これ
+これが基礎
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 
 こっちは自動でおすすめの設定にしてくれるもののベータ版
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
+
+好きな見た目に寄せるために奮闘
+
+https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 
 -----
 
