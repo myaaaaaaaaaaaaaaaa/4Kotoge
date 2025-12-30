@@ -9,7 +9,7 @@ EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
 ### ゲームの詳細
 
-PERFECTは33msみたいです。厳しい。
+PERFECTは33msみたいです　厳しい
 judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
 
 
