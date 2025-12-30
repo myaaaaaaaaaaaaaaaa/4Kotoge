@@ -20,6 +20,8 @@ Googleや特にSafariだとダブルタップで拡大されちゃうかも　�
 
 ローカルにダウンロードしてHTMLviewerなどで実行してください
 
+-----
+
 これ
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
