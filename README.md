@@ -1,6 +1,6 @@
 # 4Kotoge
 
-上から落ちてくるだけの音ゲー（？）。
+上から落ちてくるだけの音ゲー（？）
 EatKanoが面白かったのでローカルで実行可能なhtml(js)ゲームを生成した（AIが）
 
 EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
