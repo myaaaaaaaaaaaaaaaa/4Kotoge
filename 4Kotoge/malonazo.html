@@ -4,28 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>V40 - Unified Advanced Logic</title>
-    <style>
-        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; touch-action: none; color: #fff; }
-        #game-container {
-            position: relative; width: 100%; height: 100vh;
-            margin: 0 auto; background: radial-gradient(circle at 50% 15%, #0d1a2d 0%, #000 70%);
-            border-left: 2px solid #444; border-right: 2px solid #444;
-            box-sizing: border-box; overflow: hidden;
-        }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #controls {
-            position: absolute; top: 10px; left: 10px; z-index: 50;
-            background: rgba(0,0,0,0.85); padding: 10px; border-radius: 6px;
-            font-size: 11px; border: 1px solid #444; opacity: 0.1; transition: opacity 0.3s;
-        }
-        #controls:hover { opacity: 1.0; }
-        .control-row { margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
-        .input-box { background: #222; color: #0ff; border: 1px solid #666; width: 60px; padding: 2px; text-align: center; margin-left: 10px; }
-        #ui-overlay { position: absolute; top: 20%; width: 100%; text-align: center; pointer-events: none; z-index: 40; }
-        #judge-text { font-size: 1rem; font-weight: 900; height: 4rem; text-shadow: 0 0 10px rgba(0,255,255,0.8); }
-        #combo { font-size: 1rem; font-weight: bold; }
-    </style>
+	<style>
+		* {
+			-webkit-touch-callout: none;
+			-webkit-user-select: none;
+			user-select: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		body {
+			background: #000;
+			margin: 0;
+			overflow: hidden;
+			font-family: sans-serif;
+			touch-action: none;
+			color: #fff;
+		}
+
+		#game-container {
+			position: relative;
+			width: 100%;
+			height: 100vh;
+			margin: 0 auto;
+			background: radial-gradient(circle at 50% 15%, #0d1a2d 0%, #000 70%);
+			border-left: 2px solid #444;
+			border-right: 2px solid #444;
+			box-sizing: border-box;
+			overflow: hidden;
+		}
+
+		canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			z-index: 1;
+		}
+
+		#controls {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			z-index: 50;
+			background: rgba(0, 0, 0, 0.85);
+			padding: 10px;
+			border-radius: 6px;
+			font-size: 11px;
+			border: 1px solid #444;
+			opacity: 0.1;
+			transition: opacity 0.3s;
+		}
+
+		#controls:hover {
+			opacity: 1.0;
+		}
+
+		.control-row {
+			margin-bottom: 5px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.input-box {
+			background: #222;
+			color: #0ff;
+			border: 1px solid #666;
+			width: 60px;
+			padding: 2px;
+			text-align: center;
+			margin-left: 10px;
+		}
+
+		#ui-overlay {
+			position: absolute;
+			top: 25%;
+			width: 100%;
+			text-align: center;
+			pointer-events: none;
+			z-index: 40;
+		}
+
+		#combo {
+			font-size: 2rem;
+			font-weight: bold;
+			line-height: 1;
+		}
+
+		#judge-text {
+			font-size: 1.2rem;
+			font-weight: 900;
+			height: 2rem;
+			text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+			transition: transform 0.03s ease-out;
+		}
+
+		/* 判定時のバウンスアニメーション */
+		.judge-bounce {
+			animation: bounce 0.05s ease-out;
+		}
+
+		@keyframes bounce {
+			0% { transform: scale(1.0); }
+			100% { transform: scale(1.0); }
+		}
+	</style>
 </head>
 <body>
 
@@ -48,8 +132,8 @@
         <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
     </div>
     <div id="ui-overlay">
+	    <div id="combo">0</div>
         <div id="judge-text"></div>
-        <div id="combo">0</div>
     </div>
 </div>
 
@@ -60,14 +144,16 @@
     const judgeEl = document.getElementById('judge-text');
     let audioCtx;
 
-    let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream' };
+	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream' };
+	const MAX_LANE_WIDTH = 600; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
+
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
     let laneCountArray = [0, 0, 0, 0]; 
     let lastStepTime = 0, width, height;
 
     // パース設定
     const VANISHING_Y = 10; 
-    const JUDGE_LINE_Y_RATIO = 0.88;
+    const JUDGE_LINE_Y_RATIO = 0.77
     const Z_COEFF = 2; 
 
     const STYLE_14 = { main: "#00f7ff", border: "#008888" };
@@ -99,16 +185,22 @@
         return VANISHING_Y + (judgeY - VANISHING_Y) * (1 / (1 + safeZ * Z_COEFF));
     }
 
-    function getPerspectiveX(xRaw, y) {
-        const judgeY = height * JUDGE_LINE_Y_RATIO;
-        const scale = (y - VANISHING_Y) / (judgeY - VANISHING_Y);
-        const centerX = width / 2;
-        return centerX + (xRaw - width / 2) * scale;
-    }
+	// 108行目付近
+	function getPerspectiveX(xRaw, y) {
+		const judgeY = height * JUDGE_LINE_Y_RATIO;
+		const scale = (y - VANISHING_Y) / (judgeY - VANISHING_Y);
+		const centerX = width / 2;
+
+		// 画面中央を基準に、制限された幅の中で配置を計算
+		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+		const relativeX = (xRaw / width - 0.5) * laneFullW;
+
+		return centerX + relativeX * scale;
+	}
 
     function drawNote(lane, z, isBlue) {
         const yBase = zToY(z);
-        const yTop = zToY(z + 0.015);
+        const yTop = zToY(z + 0.05);
         const laneW = width / 4;
         const xCenterRaw = (lane + 0.5) * laneW;
         const wRaw = laneW * 0.94;
@@ -124,7 +216,7 @@
         ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
         ctx.closePath();
 
-        ctx.fillStyle = isBlue ? "#00bbff" : style.main;
+        ctx.fillStyle = isBlue ? "#1a1a1a" : style.main;
         ctx.fill();
         ctx.strokeStyle = style.border;
         ctx.lineWidth = 1;
@@ -137,7 +229,7 @@
         const judgeY = height * JUDGE_LINE_Y_RATIO;
 
         // レーンセパレーター
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.15)";
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
         ctx.lineWidth = 1;
         for (let i = 0; i <= 4; i++) {
             ctx.beginPath();
@@ -151,7 +243,7 @@
             const xL = getPerspectiveX(i * (width / 4), judgeY);
             const xR = getPerspectiveX((i + 1) * (width / 4), judgeY);
             ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
-            ctx.strokeRect(xL + 2, judgeY - 6, (xR - xL) - 4, 12);
+            ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
         }
         ctx.strokeStyle = "#0ff";
         ctx.lineWidth = 2;
@@ -254,6 +346,11 @@
                     const isPerf = diff < 35;
                     judgeEl.innerText = isPerf ? "PERFECT" : (diff < 70 ? "GREAT" : "GOOD");
                     judgeEl.style.color = isPerf ? "#0ff" : "#fff";
+					
+					judgeEl.classList.remove('judge-bounce');
+                    void judgeEl.offsetWidth; // DOMリフローを発生させてアニメーションを再トリガー
+                    judgeEl.classList.add('judge-bounce');
+					
                     combo++; comboEl.innerText = combo;
                     break;
                 }
@@ -281,18 +378,39 @@
         isPlaying = true; update();
     }
 
+// 1. タッチ操作の制御（独立したイベント）
     canvas.addEventListener('touchstart', (e) => {
         if (!isPlaying) start();
         const rect = canvas.getBoundingClientRect();
+        
+        // 見た目のレーン幅と、左側の余白を計算
+        const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+        const offsetX = (width - laneFullW) / 2;
+
         for (let i = 0; i < e.changedTouches.length; i++) {
-            const x = e.changedTouches[i].clientX - rect.left;
-            judge(Math.floor((x / rect.width) * 4));
+            const touchX = e.changedTouches[i].clientX - rect.left;
+            
+            // タップした位置から余白を引き、制限された幅の中で判定
+            const relativeX = touchX - offsetX;
+            const lane = Math.floor((relativeX / laneFullW) * 4);
+            
+            if (lane >= 0 && lane < 4) judge(lane);
         }
     }, {passive: false});
 
+    // 2. キーボード操作の制御（独立したイベント）
     window.onkeydown = (e) => {
-        if (!isPlaying) start();
-        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[e.key.toLowerCase()];
+        const key = e.key.toLowerCase();
+        // スペースキーまたはD,F,J,Kキーでゲームを開始
+        if (e.code === 'Space' || ['d', 'f', 'j', 'k'].includes(key)) {
+            if (!isPlaying) {
+                start();
+                if (e.code === 'Space') return; // スペースの場合は開始のみ
+            }
+        }
+
+        // プレイ中の判定
+        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[key];
         if (lane !== undefined) judge(lane);
     };
 
