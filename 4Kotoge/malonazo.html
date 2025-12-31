@@ -1,3 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>V40 - Unified Advanced Logic</title>
+	<style>
+		* {
+			-webkit-touch-callout: none;
+			-webkit-user-select: none;
+			user-select: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		body {
+			background: #000;
+			margin: 0;
+			overflow: hidden;
+			font-family: sans-serif;
+			touch-action: none;
+			color: #fff;
+		}
+
+		#game-container {
+			position: relative;
+			width: 100%;
+			height: 100vh;
+			margin: 0 auto;
+			background: radial-gradient(circle at 50% 15%, #0d1a2d 0%, #000 70%);
+			border-left: 2px solid #444;
+			border-right: 2px solid #444;
+			box-sizing: border-box;
+			overflow: hidden;
+		}
+
+		canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			z-index: 1;
+		}
+
+	/* 55行目付近：#controls のスタイルを修正 */
+	#controls {
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		z-index: 50;
+		background: rgba(0, 0, 0, 0.85);
+		padding: 10px;
+		border-radius: 6px;
+		font-size: 11px;
+		border: 1px solid #444;
+		opacity: 0.2; /* 初期状態を少しだけ濃くする */
+		transition: opacity 0.5s ease; /* 消える時はゆっくりにする */
+	}
+
+	/* ホバー時、または中の入力項目にフォーカスがある時は明るさを維持 */
+	#controls:hover,
+	#controls:focus-within {
+		opacity: 1.0;
+		transition: opacity 0.1s ease; /* 明るくなる時は素早く */
+	}
+
+		#controls:hover {
+			opacity: 1.0;
+		}
+
+		.control-row {
+			margin-bottom: 5px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.input-box {
+			background: #222;
+			color: #0ff;
+			border: 1px solid #666;
+			width: 60px;
+			padding: 2px;
+			text-align: center;
+			margin-left: 10px;
+		}
+
+		#ui-overlay {
+			position: absolute;
+			top: 25%;
+			width: 100%;
+			text-align: center;
+			pointer-events: none;
+			z-index: 40;
+		}
+
+		#combo {
+			font-size: 2rem;
+			font-weight: bold;
+			line-height: 1;
+		}
+
+		#judge-text {
+			font-size: 1.2rem;
+			font-weight: 900;
+			height: 2rem;
+			text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+			transition: transform 0.03s ease-out;
+		}
+
+		/* 判定時のバウンスアニメーション */
+		.judge-bounce {
+			animation: bounce 0.05s ease-out;
+		}
+
+		@keyframes bounce {
+			0% { transform: scale(1.08); }
+			100% { transform: scale(1.0); }
+		}
+	</style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">
+        <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
+        <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
+        <div class="control-row">速度: <input type="number" id="inp-spd" class="input-box" value="8"></div>
+        <div class="control-row">タイプ: <select id="inp-type" class="input-box">
+            <option value="stream" selected>stream</option>
+            <option value="speed">speed</option>
+            <option value="jack">jack</option>
+        </select></div>
+        <div class="control-row">解像: <select id="inp-res" class="input-box">
+            <option value="2">8分</option>
+            <option value="4" selected>16分</option>
+            <option value="8">32分</option>
+        </select></div>
+        <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
+    </div>
+    <div id="ui-overlay">
+	    <div id="combo">0</div>
+        <div id="judge-text"></div>
+    </div>
+</div>
+
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -286,3 +433,5 @@
     document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
     document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
 </script>
+</body>
+</html>
