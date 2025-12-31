@@ -14,14 +14,14 @@ PERFECTは45msみたいです　やさしい
 
 iPadでの操作を想定しているが、PCのDFJKキーでも操作できる　PCだと軽い
 
-Googleや特にSafariだとダブルタップで拡大されちゃうかも　あと重いと思う
+~~Googleや特にSafariだとダブルタップで拡大されちゃうかも　あと重いと思う~~　←大丈夫だよ　①だけダメかも
 
 ローカルにダウンロードしてHTMLviewerなどで実行してください
 
 -----
 ### ベータ版
 
-①2代目　DOM処理+ローカルのmp3から音を出すもの　だと思う　普通に面白い（重いけど）
+①2代目　DOM処理+ローカルのmp3から音を出すもの（mp3は外した）　だと思う　普通に面白い（重いけど）
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/index_mobile.html
 
@@ -52,7 +52,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 -----
 
 ### 今後
-~~5K~10Kまで作れるかも　と今思った　モード別の処理分け大変そう~~←できた
+~~5K~10Kまで作れるかも　と今思った　モード別の処理分け大変そう~~　←できた
 
 せっかくだしスコアも出せるようにしたいけど重くなりそう　こっちは無理かも　canvasでどの程度軽くなったのかがよくわかんない
 
