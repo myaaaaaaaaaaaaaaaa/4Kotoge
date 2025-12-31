@@ -390,23 +390,31 @@
         requestAnimationFrame(update);
     }
 
-    canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (!isPlaying) start();
-        const rect = canvas.getBoundingClientRect();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const t = e.changedTouches[i];
-            const tx = t.clientX - rect.left;
-            const ty = t.clientY - rect.top;
-            for (let l = 0; l < 4; l++) {
-                if (tx >= getPerspectiveX(l, ty) - 5 && tx <= getPerspectiveX(l + 1, ty) + 5) {
-                    judge(l);
-                    break;
-                }
-            }
-        }
-        updateTouchLanes(e);
-    }, {passive: false});
+	canvas.addEventListener('touchstart', (e) => {
+			e.preventDefault();
+			if (!isPlaying) start();
+			
+			const rect = canvas.getBoundingClientRect();
+			const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+			const centerX = width / 2;
+			const laneStart = centerX - laneFullW / 2;
+
+			for (let i = 0; i < e.changedTouches.length; i++) {
+				const t = e.changedTouches[i];
+				const tx = t.clientX - rect.left;
+				
+				// パースに依存せず、叩いた横位置（tx）だけでレーンを特定する事実
+				// 判定ライン付近（画面下部）での「空振り」を防ぎます
+				const relativeX = tx - laneStart;
+				const laneWidth = laneFullW / 4;
+				const l = Math.floor(relativeX / laneWidth);
+
+				if (l >= 0 && l < 4) {
+					judge(l);
+				}
+			}
+			updateTouchLanes(e);
+		}, {passive: false});
 
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
