@@ -21,15 +21,15 @@ Googleや特にSafariだとダブルタップで拡大されちゃうかも　�
 -----
 ### ベータ版
 
-2代目　DOM処理とローカルのmp3から音を出すのをやめたもの　だと思う　普通に面白い
+①2代目　DOM処理とローカルのmp3から音を出すもの　だと思う　普通に面白い（重いけど）
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/index_mobile.html
 
-これが基礎
+②これが基礎　Canvasに切り替えて音もWeb APIにした 軽量化のためいったんスコアも廃止　完全な練習モード
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 
-こっちは自動でおすすめの設定にしてくれるもののベータ版
+③こっちは自動でおすすめの設定にしてくれるもののベータ版
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
