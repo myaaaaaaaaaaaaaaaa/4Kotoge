@@ -33,7 +33,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
 好きな見た目に寄せるために奮闘
-Edgeでは無反応が多発するため動かないし、謎のMISSが出ることがある　使えない　見た目は好きだけど
+Edgeでは無反応が多発するため動かないし、ローカルでも謎のMISSが出ることがある　使えない　見た目は好きだけど　　おそらく処理落ちだと思うけど　　判定が追い付いてない
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 
