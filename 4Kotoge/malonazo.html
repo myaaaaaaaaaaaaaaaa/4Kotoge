@@ -146,27 +146,22 @@
 </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
+const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d', { alpha: false });
     const comboEl = document.getElementById('combo');
     const judgeEl = document.getElementById('judge-text');
     let audioCtx;
 
-	let activeTouchLanes = [false, false, false, false];
-
-	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
-	
-	const MAX_LANE_WIDTH = 1300; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
+    let activeTouchLanes = [false, false, false, false];
+    let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
+    const MAX_LANE_WIDTH = 1300;
 
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
     let laneCountArray = [0, 0, 0, 0]; 
     let lastStepTime = 0, width, height;
 
-    // パース設定
     const VANISHING_Y = 10; 
-    const JUDGE_LINE_Y_RATIO = 0.77
-	const Z_COEFF = 2;
-
+    const JUDGE_LINE_Y_RATIO = 0.77;
     const STYLE_14 = { main: "#00f7ff", border: "#008888" };
     const STYLE_23 = { main: "#0066ff", border: "#0033aa" };
 
@@ -189,116 +184,93 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     }
 
-	function zToY(z) {
+    function zToY(z) {
         const judgeY = height * JUDGE_LINE_Y_RATIO;
-        // 反比例を避け、zの値に対してリニアに反応する式に変更します
-        // これにより「急に現れる」挙動を事実として抑制します
         const safeZ = Math.max(0, z);
         return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-safeZ * 0.5);
     }
-	
-	// 108行目付近：座標計算をシンプルかつ厳密に修正
-	function getPerspectiveX(laneIdx, y) {
-		const judgeY = height * JUDGE_LINE_Y_RATIO;
-		const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
-		const centerX = width / 2;
-		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-		
-		// laneIdx (0〜4) を基準に計算する事実
-		const unitW = laneFullW / 4;
-		const relativeX = (laneIdx - 2) * unitW; 
-		
-		return centerX + relativeX * scale;
-	}
 
-	// 120行目付近：drawNoteを新しい座標計算に合わせる
-	function drawNote(lane, z, isBlue) {
-		const yBase = zToY(z);
-		const yTop = zToY(z + 0.05);
-		const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
+    function getPerspectiveX(laneIdx, y) {
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
+        const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
+        const centerX = width / 2;
+        const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+        const unitW = laneFullW / 4;
+        const relativeX = (laneIdx - 2) * unitW; 
+        return centerX + relativeX * scale;
+    }
 
-		// laneIdx（左端）と laneIdx + 1（右端）を渡す事実
-		const xLb = getPerspectiveX(lane + 0.03, yBase);
-		const xRb = getPerspectiveX(lane + 0.97, yBase);
-		const xLt = getPerspectiveX(lane + 0.03, yTop);
-		const xRt = getPerspectiveX(lane + 0.97, yTop);
+    function drawNote(lane, z, isBlue) {
+        const yBase = zToY(z);
+        const yTop = zToY(z + 0.05);
+        const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
+        const xLb = getPerspectiveX(lane + 0.03, yBase);
+        const xRb = getPerspectiveX(lane + 0.97, yBase);
+        const xLt = getPerspectiveX(lane + 0.03, yTop);
+        const xRt = getPerspectiveX(lane + 0.97, yTop);
+        ctx.beginPath();
+        ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
+        ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
+        ctx.closePath();
+        ctx.fillStyle = isBlue ? "#ffffff" : style.main;
+        ctx.fill();
+    }
 
-		ctx.beginPath();
-		ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
-		ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
-		ctx.closePath();
-		ctx.fillStyle = isBlue ? "#ffffff" : style.main;
-		ctx.fill();
-	}
+    function render(now) {
+        ctx.fillStyle = "#030305";
+        ctx.fillRect(0, 0, width, height);
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
 
-	// 147行目付近：render内のレーンセパレーターと判定枠も同期
-	// セパレーター
-	function render(now) {
-		ctx.fillStyle = "#030305";
-		ctx.fillRect(0, 0, width, height);
-		const judgeY = height * JUDGE_LINE_Y_RATIO;
+        activeTouchLanes.forEach((isActive, l) => {
+            if (isActive) {
+                ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
+                ctx.beginPath();
+                ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
+                ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
+                ctx.lineTo(getPerspectiveX(l + 1, height), height);
+                ctx.lineTo(getPerspectiveX(l, height), height);
+                ctx.fill();
+            }
+        });
 
-		// 【デバッグ発光】activeTouchLanes が true のレーンを塗りつぶす事実
-		activeTouchLanes.forEach((isActive, l) => {
-			if (isActive) {
-				ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
-				ctx.beginPath();
-				ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
-				ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
-				ctx.lineTo(getPerspectiveX(l + 1, height), height);
-				ctx.lineTo(getPerspectiveX(l, height), height);
-				ctx.fill();
-			}
-		});
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
+        for (let i = 0; i <= 4; i++) {
+            const yStart = zToY(5.0);
+            ctx.beginPath();
+            ctx.moveTo(getPerspectiveX(i, yStart), yStart);
+            ctx.lineTo(getPerspectiveX(i, height), height);
+            ctx.stroke();
+        }
 
-		// レーンセパレーター（i * (width/4) を getPerspectiveX(i, ...) に差し替え）
-		ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
-		ctx.lineWidth = 1;
-		for (let i = 0; i <= 4; i++) {
-			const yStart = zToY(5.0);
-			ctx.beginPath();
-			ctx.moveTo(getPerspectiveX(i, yStart), yStart);
-			ctx.lineTo(getPerspectiveX(i, height), height);
-			ctx.stroke();
-		}
-		
-		// 判定枠も同様に差し替え
-		for (let i = 0; i < 4; i++) {
-			const xL = getPerspectiveX(i, judgeY);
-			const xR = getPerspectiveX(i + 1, judgeY);
-			ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
-			ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
-		}
-		
+        for (let i = 0; i < 4; i++) {
+            const xL = getPerspectiveX(i, judgeY);
+            const xR = getPerspectiveX(i + 1, judgeY);
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
+            ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
+        }
+
         ctx.strokeStyle = "#0ff";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(getPerspectiveX(0, judgeY), judgeY);
-        ctx.lineTo(getPerspectiveX(width, judgeY), judgeY);
+        ctx.lineTo(getPerspectiveX(4, judgeY), judgeY);
         ctx.stroke();
 
-        // エフェクト
-	// render 関数内のエフェクト描画箇所を以下に差し替え
-	for (let i = effects.length - 1; i >= 0; i--) {
-		const e = effects[i];
-		// 判定ラインの高さ（judgeY）に基づいて描画する事実
-		const xL = getPerspectiveX(e.lane, judgeY);
-		const xR = getPerspectiveX(e.lane + 1, judgeY);
-		
-		ctx.fillStyle = `rgba(0, 255, 255, ${e.life * 0.5})`; // 視認性を上げます
-		ctx.fillRect(xL, judgeY - 60, xR - xL, 60); // 矩形の高さを少し強調
-		
-		e.life -= 0.08; // 少しゆっくり消えるように調整
-		if (e.life <= 0) effects.splice(i, 1);
-	}
+        for (let i = effects.length - 1; i >= 0; i--) {
+            const e = effects[i];
+            const xL = getPerspectiveX(e.lane, judgeY);
+            const xR = getPerspectiveX(e.lane + 1, judgeY);
+            ctx.fillStyle = `rgba(0, 255, 255, ${e.life * 0.5})`;
+            ctx.fillRect(xL, judgeY - 60, xR - xL, 60);
+            e.life -= 0.08;
+            if (e.life <= 0) effects.splice(i, 1);
+        }
 
-const travelSpeed = config.speed * 0.0001;
+        const travelSpeed = config.speed * 0.0001;
         for (let i = activeNotes.length - 1; i >= 0; i--) {
             const n = activeNotes[i];
             const targetTime = n.targetTime + config.offset;
             const timeDiff = targetTime - now;
-
-            // 判定ラインを大幅に過ぎたノーツを削除
             if (now > targetTime + 150) {
                 activeNotes.splice(i, 1);
                 combo = 0;
@@ -307,102 +279,56 @@ const travelSpeed = config.speed * 0.0001;
                 judgeEl.style.color = "#f04";
                 continue;
             }
-
-            // ミリ秒単位の timeDiff を、z（奥行き）として適切な範囲(0〜6程度)に変換
-            // 係数を 5 に固定することで、スピード 12〜20 で快適に動作する事実を確認済みです
             const z = timeDiff * travelSpeed * 5; 
-            
-            // 描画範囲を制限し、描画関数を一度だけ呼び出します
-            if (z < 6.0 && z > -0.5) {
-                drawNote(n.lane, z, n.isBlue);
-            }
+            if (z < 6.0 && z > -0.5) drawNote(n.lane, z, n.isBlue);
         }
     }
-    // ここで render 関数内のノーツループ処理は終了です
 
-    // V33から復元された高度なパターン生成ロジック
     function spawnPattern(spawnTime, currentStep) {
         let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
         let selected = [];
         const leftLanes = [0, 1], rightLanes = [2, 3];
-
         if (total === 1) {
             let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
-            // 80%の確率で逆の手のレーンを選ぶ（分散）
             let targetHand = (Math.random() < 0.8) ? (wasLeft ? rightLanes : leftLanes) : (wasLeft ? leftLanes : rightLanes);
-            
-            let candidate;
-            if (config.type === 'speed') {
-                let filtered = targetHand.filter(l => !lastLanes.includes(l));
-                candidate = filtered[Math.floor(Math.random() * filtered.length)];
-                if (candidate === undefined) candidate = [0,1,2,3].filter(l => !lastLanes.includes(l))[0];
-            } else if (config.type === 'jack') {
-                candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
-                // 同一レーン3連続制限の適用
-                if (laneCountArray[candidate] >= 3) {
-                    candidate = targetHand.find(l => l !== candidate) || (candidate + 1) % 4;
-                }
-            } else { // stream
-                candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
-            }
+            let candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
             selected.push(candidate);
         } else {
-            // 2枚以上の場合
-            if (config.type === 'speed') {
-                selected = [leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]].filter(l => !lastLanes.includes(l));
-                if (selected.length < 2) selected = [0, 1, 2, 3].filter(l => !lastLanes.includes(l)).slice(0, 2);
-            } else if (config.type === 'jack') {
-                let axis = lastLanes[Math.floor(Math.random() * lastLanes.length)] ?? 0;
-                if (laneCountArray[axis] >= 3) axis = (axis < 2) ? leftLanes.find(l=>l!==axis) : rightLanes.find(l=>l!==axis);
-                let otherHand = (axis < 2) ? rightLanes : leftLanes;
-                selected.push(axis, otherHand[Math.floor(Math.random() * 2)]);
-            } else { // stream
-                selected.push(leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]);
-            }
+            selected.push(leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]);
         }
-
-        laneCountArray = laneCountArray.map((count, idx) => selected.includes(idx) ? count + 1 : 0);
         lastLanes = [...selected];
-
         const arrivalDelay = 2000;
         const stepsToTravel = Math.round(arrivalDelay / (60000 / config.bpm / config.res));
         const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
-
         selected.forEach(laneIdx => {
             activeNotes.push({ lane: laneIdx, targetTime: spawnTime + arrivalDelay, isBlue: isArrivalDownBeat });
         });
     }
 
-	function judge(lane) {
-		const now = performance.now();
-		for (let i = activeNotes.length - 1; i >= 0; i--) {
-			const n = activeNotes[i];
-			if (n.lane === lane) {
-				const diff = Math.abs(now - (n.targetTime + config.offset));
-				if (diff < 200) {
-					// 判定成功時の処理を統合
-					activeNotes.splice(i, 1);
-					effects.push({ lane: lane, life: 1.0 }); // createHitEffectの代わり
+    function judge(lane) {
+        const now = performance.now();
+        for (let i = activeNotes.length - 1; i >= 0; i--) {
+            const n = activeNotes[i];
+            if (n.lane === lane) {
+                const diff = Math.abs(now - (n.targetTime + config.offset));
+                if (diff < 200) {
+                    activeNotes.splice(i, 1);
+                    effects.push({ lane: lane, life: 1.0 });
+                    const isPerf = diff < 45;
+                    judgeEl.innerText = isPerf ? "PERFECT" : (diff < 90 ? "GREAT" : "GOOD");
+                    judgeEl.style.color = isPerf ? "#0ff" : "#fff";
+                    judgeEl.classList.remove('judge-bounce');
+                    void judgeEl.offsetWidth;
+                    judgeEl.classList.add('judge-bounce');
+                    combo++;
+                    comboEl.innerText = combo;
+                    return; 
+                }
+            }
+        }
+    }
 
-					const isPerf = diff < 45;
-					judgeEl.innerText = isPerf ? "PERFECT" : (diff < 90 ? "GREAT" : "GOOD");
-					judgeEl.style.color = isPerf ? "#0ff" : "#fff";
-					
-					judgeEl.classList.remove('judge-bounce');
-					void judgeEl.offsetWidth;
-					judgeEl.classList.add('judge-bounce');
-					
-					combo++;
-					comboEl.innerText = combo;
-					return; 
-				}
-			}
-		}
-	}
-
-
-
-function updateTouchLanes(e) {
+    function updateTouchLanes(e) {
         const rect = canvas.getBoundingClientRect();
         activeTouchLanes = [false, false, false, false];
         for (let i = 0; i < e.touches.length; i++) {
@@ -414,6 +340,27 @@ function updateTouchLanes(e) {
                 }
             }
         }
+    }
+
+    function start() {
+        if (isPlaying) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        isPlaying = true; 
+        update();
+    }
+
+    function update() {
+        if (!isPlaying) return;
+        const now = performance.now();
+        const stepInterval = (60000 / config.bpm) / config.res;
+        if (now - lastStepTime > stepInterval) {
+            if (subStep % config.res === 0) playTick((subStep / config.res) % 4 === 0);
+            spawnPattern(now, subStep);
+            lastStepTime = now;
+            subStep++;
+        }
+        render(now);
+        requestAnimationFrame(update);
     }
 
     canvas.addEventListener('touchstart', (e) => {
@@ -443,48 +390,21 @@ function updateTouchLanes(e) {
         updateTouchLanes(e);
     });
 
-    function update() {
-        if (!isPlaying) return;
-        const now = performance.now();
-        const stepInterval = (60000 / config.bpm) / config.res;
-        if (now - lastStepTime > stepInterval) {
-            if (subStep % config.res === 0) playTick((subStep / config.res) % 4 === 0);
-            spawnPattern(now, subStep);
-            lastStepTime = now;
-            subStep++;
+    window.onkeydown = (e) => {
+        const key = e.key.toLowerCase();
+        if (e.code === 'Space' || ['d', 'f', 'j', 'k'].includes(key)) {
+            if (!isPlaying) start();
         }
-        render(now);
-        requestAnimationFrame(update);
-    }
+        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[key];
+        if (lane !== undefined) judge(lane);
+    };
 
-    // 2. キーボード操作の制御（独立したイベント）
-	function start() {
-			if (isPlaying) return;
-			audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-			isPlaying = true; 
-			update();
-		}
-
-		// キーボード操作の制御
-		window.onkeydown = (e) => {
-			const key = e.key.toLowerCase();
-			if (e.code === 'Space' || ['d', 'f', 'j', 'k'].includes(key)) {
-				if (!isPlaying) {
-					start();
-					if (e.code === 'Space') return;
-				}
-			}
-			const lane = {'d':0, 'f':1, 'j':2, 'k':3}[key];
-			if (lane !== undefined) judge(lane);
-		};
-
-		// UI設定の反映
-		document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
-		document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
-		document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 8;
-		document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
-		document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
-		document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
+    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
+    document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
+    document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 8;
+    document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
+    document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
+    document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
 </script>
 </body>
 </html>
