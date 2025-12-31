@@ -377,7 +377,7 @@ const travelSpeed = config.speed * 0.0001;
 		const now = performance.now();
 		// 判定対象を「最も targetTime が古い（手前の）もの」から探す
 		let targetIdx = -1;
-		let minDiff = 150; // 判定許容範囲
+		let minDiff = 500; // 判定許容範囲
 
 		for (let i = 0; i < activeNotes.length; i++) {
 			const n = activeNotes[i];
@@ -515,3 +515,4 @@ const travelSpeed = config.speed * 0.0001;
 </script>
 </body>
 </html>
+
