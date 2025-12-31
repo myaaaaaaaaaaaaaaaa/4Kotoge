@@ -154,7 +154,7 @@
 
     let activeTouchLanes = [false, false, false, false];
     let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
-    const MAX_LANE_WIDTH = 1300;
+    const MAX_LANE_WIDTH = 1100;
 
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
     let laneCountArray = [0, 0, 0, 0]; 
@@ -162,8 +162,8 @@
 
     const VANISHING_Y = 10; 
     const JUDGE_LINE_Y_RATIO = 0.77;
-    const STYLE_14 = { main: "#00f7ff", border: "#008888" };
-    const STYLE_23 = { main: "#0066ff", border: "#0033aa" };
+	const STYLE_14 = { main: "#00ffff", border: "#ffffff" }; // シアン（極めて明るい）
+	const STYLE_23 = { main: "#55aaff", border: "#ffffff" }; // 明るい青
 
     function resize() {
         const rect = canvas.parentNode.getBoundingClientRect();
@@ -202,7 +202,7 @@
 
     function drawNote(lane, z, isBlue) {
         const yBase = zToY(z);
-        const yTop = zToY(z + 0.05);
+        const yTop = zToY(z + 0.15);
         const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
         const xLb = getPerspectiveX(lane + 0.03, yBase);
         const xRb = getPerspectiveX(lane + 0.97, yBase);
@@ -212,7 +212,7 @@
         ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
         ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
         ctx.closePath();
-        ctx.fillStyle = isBlue ? "#ffffff" : style.main;
+        ctx.fillStyle = isBlue ? "#ffaa00" : style.main;
         ctx.fill();
     }
 
