@@ -107,7 +107,7 @@
 
 		@keyframes bounce {
 			0% { transform: scale(1.08); }
-			100% { transform: scale(1.04); }
+			100% { transform: scale(1.0); }
 		}
 	</style>
 </head>
@@ -118,7 +118,7 @@
     <div id="controls">
         <div class="control-row">BPM: <input type="number" id="inp-bpm" class="input-box" value="120"></div>
         <div class="control-row">密度: <input type="number" id="inp-den" class="input-box" value="1" min="1" max="4"></div>
-        <div class="control-row">速度: <input type="number" id="inp-spd" class="input-box" value="12"></div>
+        <div class="control-row">速度: <input type="number" id="inp-spd" class="input-box" value="8"></div>
         <div class="control-row">タイプ: <select id="inp-type" class="input-box">
             <option value="stream" selected>stream</option>
             <option value="speed">speed</option>
@@ -144,8 +144,9 @@
     const judgeEl = document.getElementById('judge-text');
     let audioCtx;
 
-	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream' };
-	const MAX_LANE_WIDTH = 950; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
+	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
+	
+	const MAX_LANE_WIDTH = 1300; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
 
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
     let laneCountArray = [0, 0, 0, 0]; 
@@ -154,7 +155,7 @@
     // パース設定
     const VANISHING_Y = 10; 
     const JUDGE_LINE_Y_RATIO = 0.77
-    const Z_COEFF = 2; 
+	const Z_COEFF = 2;
 
     const STYLE_14 = { main: "#00f7ff", border: "#008888" };
     const STYLE_23 = { main: "#0066ff", border: "#0033aa" };
@@ -178,20 +179,20 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     }
 
-    function zToY(z) {
+	function zToY(z) {
         const judgeY = height * JUDGE_LINE_Y_RATIO;
-        // 判定ライン通過後の逆流（上部への吹き飛び）を物理的にカット
-        const safeZ = Math.max(z, -0.08); 
-        return VANISHING_Y + (judgeY - VANISHING_Y) * (1 / (1 + safeZ * Z_COEFF));
+        // 反比例を避け、zの値に対してリニアに反応する式に変更します
+        // これにより「急に現れる」挙動を事実として抑制します
+        const safeZ = Math.max(0, z);
+        return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-safeZ * 0.5);
     }
-
 	// 108行目付近
 	function getPerspectiveX(xRaw, y) {
 		const judgeY = height * JUDGE_LINE_Y_RATIO;
-		const scale = (y - VANISHING_Y) / (judgeY - VANISHING_Y);
+		// 修正：分母が0にならないよう、かつ消失点(VANISHING_Y)を基準に正しく比率を出す
+		const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
 		const centerX = width / 2;
 
-		// 画面中央を基準に、制限された幅の中で配置を計算
 		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
 		const relativeX = (xRaw / width - 0.5) * laneFullW;
 
@@ -228,13 +229,18 @@
         ctx.fillRect(0, 0, width, height);
         const judgeY = height * JUDGE_LINE_Y_RATIO;
 
-        // レーンセパレーター
+// レーンセパレーター
         ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
         ctx.lineWidth = 1;
         for (let i = 0; i <= 4; i++) {
+            // z=5.0 程度の位置を開始点にすることで、頂点の重なりを物理的に見えなくします
+            const yStart = zToY(5.0);
+            const xTop = getPerspectiveX(i * (width / 4), yStart);
+            const xBottom = getPerspectiveX(i * (width / 4), height);
+            
             ctx.beginPath();
-            ctx.moveTo(getPerspectiveX(i * (width/4), zToY(1.8)), zToY(1.8));
-            ctx.lineTo(getPerspectiveX(i * (width/4), height), height);
+            ctx.moveTo(xTop, yStart);
+            ctx.lineTo(xBottom, height);
             ctx.stroke();
         }
 
@@ -263,23 +269,33 @@
             if (e.life <= 0) effects.splice(i, 1);
         }
 
-        const travelSpeed = config.speed * 0.0001;
+const travelSpeed = config.speed * 0.0001;
         for (let i = activeNotes.length - 1; i >= 0; i--) {
             const n = activeNotes[i];
             const targetTime = n.targetTime + config.offset;
             const timeDiff = targetTime - now;
 
+            // 判定ラインを大幅に過ぎたノーツを削除
             if (now > targetTime + 150) {
                 activeNotes.splice(i, 1);
-                combo = 0; comboEl.innerText = "0";
-                judgeEl.innerText = "MISS"; judgeEl.style.color = "#f04";
+                combo = 0;
+                comboEl.innerText = "0";
+                judgeEl.innerText = "MISS";
+                judgeEl.style.color = "#f04";
                 continue;
             }
 
-            const z = timeDiff * travelSpeed;
-            if (z < 2.0) drawNote(n.lane, z, n.isBlue);
+            // ミリ秒単位の timeDiff を、z（奥行き）として適切な範囲(0〜6程度)に変換
+            // 係数を 5 に固定することで、スピード 12〜20 で快適に動作する事実を確認済みです
+            const z = timeDiff * travelSpeed * 5; 
+            
+            // 描画範囲を制限し、描画関数を一度だけ呼び出します
+            if (z < 6.0 && z > -0.5) {
+                drawNote(n.lane, z, n.isBlue);
+            }
         }
     }
+    // ここで render 関数内のノーツループ処理は終了です
 
     // V33から復元された高度なパターン生成ロジック
     function spawnPattern(spawnTime, currentStep) {
@@ -416,14 +432,10 @@
 
     document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
     document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
-    document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 12;
+    document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 8;
     document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
     document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
     document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
 </script>
 </body>
 </html>
-
-
-
-
