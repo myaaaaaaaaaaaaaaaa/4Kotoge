@@ -137,6 +137,28 @@
             <option value="4" selected>16分</option>
             <option value="8">32分</option>
         </select></div>
+		
+		<div class="control-row">レーン: 
+		<select id="inp-lane" class="input-box">
+			<option value="4" selected>4K</option>
+			<option value="5">5K</option>
+			<option value="6">6K</option>
+			<option value="7">7K</option>
+			<option value="8">8K</option>
+			<option value="9">9K</option>
+			<option value="10">10K</option>
+		</select>
+		</div>
+		
+		
+		<div class="control-row">オート: 
+		<select id="inp-auto" class="input-box">
+			<option value="false" selected>OFF</option>
+			<option value="true">ON</option>
+		</select>
+		</div>
+		
+		
         <div class="control-row">OFF: <input type="number" id="inp-off" class="input-box" value="120">ms</div>
     </div>
     <div id="ui-overlay">
@@ -150,6 +172,10 @@
     const ctx = canvas.getContext('2d', { alpha: false });
     const comboEl = document.getElementById('combo');
     const judgeEl = document.getElementById('judge-text');
+	document.getElementById('inp-auto').onchange = (e) => {
+    // 事実：セレクトボックスの文字列 "true" / "false" を論理値に変換して代入します
+    isAuto = (e.target.value === "true");
+};
     let audioCtx;
 
 	let isAuto = false; // 事実：これを true にするとオートプレイになります
@@ -157,7 +183,7 @@
 
 
     let activeTouchLanes = [false, false, false, false];
-    let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
+    let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000, laneCount: 4 };
     const MAX_LANE_WIDTH = 900;
 
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
@@ -195,74 +221,83 @@
         return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-z * 0.5);
     }
 
-    function getPerspectiveX(laneIdx, y) {
-        const judgeY = height * JUDGE_LINE_Y_RATIO;
-        const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
-        const centerX = width / 2;
-        const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-        const unitW = laneFullW / 4;
-        const relativeX = (laneIdx - 2) * unitW; 
-        return centerX + relativeX * scale;
-    }
+	// レーン幅を laneCount に基づいて計算するように変更
+	function getPerspectiveX(laneIdx, y) {
+		const judgeY = height * JUDGE_LINE_Y_RATIO;
+		const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
+		const centerX = width / 2;
+		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+		
+		// 事実：全幅を現在のレーン数で割る
+		const unitW = laneFullW / config.laneCount;
+		const relativeX = (laneIdx - (config.laneCount / 2)) * unitW; 
+		return centerX + relativeX * scale;
+	}
 
 	function drawNote(lane, z, isBlue) {
-        // z を中心にして、前後に 0.075 ずつ厚みを持たせます
-        const yBase = zToY(z - 0.075);
-        const yTop = zToY(z + 0.075);
-        
-        const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
-        const xLb = getPerspectiveX(lane + 0.03, yBase);
-        const xRb = getPerspectiveX(lane + 0.97, yBase);
-        const xLt = getPerspectiveX(lane + 0.03, yTop);
-        const xRt = getPerspectiveX(lane + 0.97, yTop);
-        
-        ctx.beginPath();
-        ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
-        ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
-        ctx.closePath();
-        ctx.fillStyle = isBlue ? "#ffaa00" : style.main;
-        ctx.fill();
-    }
+		const yBase = zToY(z - 0.075);
+		const yTop = zToY(z + 0.075);
+		
+		// 事実：4K以外でも「両端のレーン」がシアン色になるように判定を修正します
+		const isEdge = (lane === 0 || lane === config.laneCount - 1);
+		const style = isEdge ? STYLE_14 : STYLE_23;
 
-    function render(now) {
-        ctx.fillStyle = "#030305";
-        ctx.fillRect(0, 0, width, height);
-        const judgeY = height * JUDGE_LINE_Y_RATIO;
+		const xLb = getPerspectiveX(lane + 0.03, yBase);
+		const xRb = getPerspectiveX(lane + 0.97, yBase);
+		const xLt = getPerspectiveX(lane + 0.03, yTop);
+		const xRt = getPerspectiveX(lane + 0.97, yTop);
+		
+		ctx.beginPath();
+		ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
+		ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
+		ctx.closePath();
+		ctx.fillStyle = isBlue ? "#ffaa00" : style.main;
+		ctx.fill();
+	}
+	function render(now) {
+			ctx.fillStyle = "#030305";
+			ctx.fillRect(0, 0, width, height);
+			const judgeY = height * JUDGE_LINE_Y_RATIO;
 
-        activeTouchLanes.forEach((isActive, l) => {
-            if (isActive) {
-                ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
-                ctx.beginPath();
-                ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
-                ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
-                ctx.lineTo(getPerspectiveX(l + 1, height), height);
-                ctx.lineTo(getPerspectiveX(l, height), height);
-                ctx.fill();
-            }
-        });
+			// タッチ時の光るエフェクト（ここは forEach なので自動で対応されます）
+			activeTouchLanes.forEach((isActive, l) => {
+				if (isActive) {
+					ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
+					ctx.beginPath();
+					ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
+					ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
+					ctx.lineTo(getPerspectiveX(l + 1, height), height);
+					ctx.lineTo(getPerspectiveX(l, height), height);
+					ctx.fill();
+				}
+			});
 
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
-        for (let i = 0; i <= 4; i++) {
-            const yStart = zToY(5.0);
-            ctx.beginPath();
-            ctx.moveTo(getPerspectiveX(i, yStart), yStart);
-            ctx.lineTo(getPerspectiveX(i, height), height);
-            ctx.stroke();
-        }
+			// 【修正ポイント1】縦線の描画（事実：i <= 4 を config.laneCount に変更）
+			ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
+			for (let i = 0; i <= config.laneCount; i++) { 
+				const yStart = zToY(5.0);
+				ctx.beginPath();
+				ctx.moveTo(getPerspectiveX(i, yStart), yStart);
+				ctx.lineTo(getPerspectiveX(i, height), height);
+				ctx.stroke();
+			}
 
-        for (let i = 0; i < 4; i++) {
-            const xL = getPerspectiveX(i, judgeY);
-            const xR = getPerspectiveX(i + 1, judgeY);
-            ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
-            ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
-        }
+			// 【修正ポイント2】判定枠の描画（事実：i < 4 を config.laneCount に変更）
+			for (let i = 0; i < config.laneCount; i++) {
+				const xL = getPerspectiveX(i, judgeY);
+				const xR = getPerspectiveX(i + 1, judgeY);
+				ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
+				ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
+			}
 
-        ctx.strokeStyle = "#0ff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(getPerspectiveX(0, judgeY), judgeY);
-        ctx.lineTo(getPerspectiveX(4, judgeY), judgeY);
-        ctx.stroke();
+			// 【修正ポイント3】判定線の横棒（事実：右端の座標を config.laneCount に変更）
+			ctx.strokeStyle = "#0ff";
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.moveTo(getPerspectiveX(0, judgeY), judgeY);
+			ctx.lineTo(getPerspectiveX(config.laneCount, judgeY), judgeY); 
+			ctx.stroke();
+
 
         for (let i = effects.length - 1; i >= 0; i--) {
             const e = effects[i];
@@ -293,60 +328,74 @@
         }
     }
 
-function spawnPattern(spawnTime, currentStep) {
-        let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
-        let selected = [];
-        const leftLanes = [0, 1], rightLanes = [2, 3];
+	function spawnPattern(spawnTime, currentStep) {
+		let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
+		let selected = [];
 
-        if (total === 1) {
-            let wasLeft = lastLanes.length > 0 && lastLanes[0] < 2;
-            let targetHand = (Math.random() < 0.8) ? (wasLeft ? rightLanes : leftLanes) : (wasLeft ? leftLanes : rightLanes);
-            let candidate;
+		// 事実：レーンを左右に分ける基準値を計算（例：7Kなら 3.5）
+		const mid = config.laneCount / 2;
 
-            if (config.type === 'speed') {
-                let filtered = targetHand.filter(l => !lastLanes.includes(l));
-                candidate = filtered.length > 0 ? filtered[Math.floor(Math.random() * filtered.length)] : targetHand[Math.floor(Math.random() * 2)];
-            } else if (config.type === 'jack') {
-                candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
-                if (laneCountArray[candidate] >= 3) {
-                    candidate = targetHand.find(l => l !== candidate) || (candidate + 1) % 4;
-                }
-            } else { // stream
-                candidate = targetHand[Math.floor(Math.random() * targetHand.length)];
-            }
-            selected.push(candidate);
-        } else {
-            if (config.type === 'speed') {
-                selected = [leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]].filter(l => !lastLanes.includes(l));
-                if (selected.length < 2) selected = [0, 1, 2, 3].filter(l => !lastLanes.includes(l)).slice(0, 2);
-            } else if (config.type === 'jack') {
-                let axis = lastLanes[Math.floor(Math.random() * lastLanes.length)] ?? 0;
-                if (laneCountArray[axis] >= 3) axis = (axis < 2) ? leftLanes.find(l=>l!==axis) : rightLanes.find(l=>l!==axis);
-                let otherHand = (axis < 2) ? rightLanes : leftLanes;
-                selected.push(axis, otherHand[Math.floor(Math.random() * 2)]);
-            } else { // stream
-                selected.push(leftLanes[Math.floor(Math.random() * 2)], rightLanes[Math.floor(Math.random() * 2)]);
-            }
-        }
+		if (total === 1) {
+			// 直前のノーツが左側だったか判定
+			let wasLeft = lastLanes.length > 0 && lastLanes[0] < mid;
+			
+			// 80%の確率で逆の手（逆側）に振る
+			let useLeft = (Math.random() < 0.8) ? !wasLeft : wasLeft;
+			
+			// 候補となるレーン番号を動的に生成
+			let candidates = [];
+			for (let i = 0; i < config.laneCount; i++) {
+				if (useLeft && i < mid) candidates.push(i);
+				if (!useLeft && i >= mid) candidates.push(i);
+			}
 
-        laneCountArray = laneCountArray.map((count, idx) => selected.includes(idx) ? count + 1 : 0);
-        lastLanes = [...selected];
+			let candidate;
+			if (config.type === 'speed') {
+				let filtered = candidates.filter(l => !lastLanes.includes(l));
+				candidate = filtered.length > 0 ? filtered[Math.floor(Math.random() * filtered.length)] : candidates[Math.floor(Math.random() * candidates.length)];
+			} else {
+				candidate = candidates[Math.floor(Math.random() * candidates.length)];
+			}
+			selected.push(candidate);
+		} else {
+			// 複数ノーツ（同時押し）の場合：左側から1つ、右側から1つ選ぶ
+			let leftSide = [], rightSide = [];
+			for (let i = 0; i < config.laneCount; i++) {
+				if (i < mid) leftSide.push(i);
+				else rightSide.push(i);
+			}
+			
+			let l = leftSide[Math.floor(Math.random() * leftSide.length)];
+			let r = rightSide[Math.floor(Math.random() * rightSide.length)];
+			
+			if (config.type === 'speed') {
+				if (lastLanes.includes(l) && leftSide.length > 1) l = leftSide.find(idx => !lastLanes.includes(idx));
+				if (lastLanes.includes(r) && rightSide.length > 1) r = rightSide.find(idx => !lastLanes.includes(idx));
+			}
+			selected.push(l, r);
+		}
 
-        const stepMS = 60000 / config.bpm / config.res;
-        const stepsToTravel = Math.round(2000 / stepMS);
-        const arrivalDelay = stepMS * stepsToTravel;
-        
-        const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
+		// 事実：laneCountArray の要素数が config.laneCount と一致しない場合は再生成
+		if (laneCountArray.length !== config.laneCount) {
+			laneCountArray = new Array(config.laneCount).fill(0);
+		}
 
-        // 事実：forEach と 関数の閉じカッコを正しく配置しました
-        selected.forEach(laneIdx => {
-            activeNotes.push({ 
-                lane: laneIdx, 
-                targetTime: spawnTime + arrivalDelay, 
-                isBlue: isArrivalDownBeat 
-            });
-        });
-    }
+		laneCountArray = laneCountArray.map((count, idx) => selected.includes(idx) ? count + 1 : 0);
+		lastLanes = [...selected];
+
+		const stepMS = 60000 / config.bpm / config.res;
+		const stepsToTravel = Math.round(2000 / stepMS);
+		const arrivalDelay = stepMS * stepsToTravel;
+		const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
+
+		selected.forEach(laneIdx => {
+			activeNotes.push({ 
+				lane: laneIdx, 
+				targetTime: spawnTime + arrivalDelay, 
+				isBlue: isArrivalDownBeat 
+			});
+		});
+	}
 
 	function judge(lane) {
         const now = performance.now();
@@ -479,21 +528,19 @@ function update() {
 
 
 
-// 事実：高さ（ty）に応じて変化する台形の幅からレーン番号を導き出します
-    function getLaneFromCoords(tx, ty) {
-        const judgeY = height * JUDGE_LINE_Y_RATIO;
-        const scale = Math.max(0, (ty - VANISHING_Y) / (judgeY - VANISHING_Y));
-        const centerX = width / 2;
-        const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-        
-        const currentFullW = laneFullW * scale;
-        const leftEdge = centerX - currentFullW / 2;
-        
-        const relativePos = (tx - leftEdge) / currentFullW;
-        const l = Math.floor(relativePos * 4);
-        
-        return (l >= 0 && l < 4) ? l : -1;
-    }
+	// タッチ判定も laneCount に基づく
+	function getLaneFromCoords(tx, ty) {
+		const judgeY = height * JUDGE_LINE_Y_RATIO;
+		const scale = Math.max(0, (ty - VANISHING_Y) / (judgeY - VANISHING_Y));
+		const centerX = width / 2;
+		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+		const currentFullW = laneFullW * scale;
+		const leftEdge = centerX - currentFullW / 2;
+		
+		const relativePos = (tx - leftEdge) / currentFullW;
+		const l = Math.floor(relativePos * config.laneCount);
+		return (l >= 0 && l < config.laneCount) ? l : -1;
+	}
 
 
 
@@ -528,14 +575,37 @@ function update() {
         updateTouchLanes(e);
     });
 
-    window.onkeydown = (e) => {
-        const key = e.key.toLowerCase();
-        if (e.code === 'Space' || ['d', 'f', 'j', 'k'].includes(key)) {
-            if (!isPlaying) start();
-        }
-        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[key];
-        if (lane !== undefined) judge(lane);
-    };
+	const KEY_CONFIGS = {
+		4: { 'd': 0, 'f': 1, 'j': 2, 'k': 3 },
+		5: { 'd': 0, 'f': 1, 'j': 2, 'k': 3, 'l': 4 },
+		6: { 's': 0, 'd': 1, 'f': 2, 'j': 3, 'k': 4, 'l': 5 },
+		7: { 's': 0, 'd': 1, 'f': 2, ' ': 3, 'j': 4, 'k': 5, 'l': 6 },
+		8: { 'a': 0, 's': 1, 'd': 2, 'f': 3, 'j': 4, 'k': 5, 'l': 6, ';': 7 },
+		9: { 'a': 0, 's': 1, 'd': 2, 'f': 3, ' ': 4, 'j': 5, 'k': 6, 'l': 7, ';': 8 },
+		10: { 'q': 0, 'w': 1, 'e': 2, 'r': 3, 'v': 4, 'n': 5, 'u': 6, 'i': 7, 'o': 8, 'p': 9 }
+	};
+
+	window.onkeydown = (e) => {
+		// スペースキーによるスクロールを防止
+		if (e.key === ' ') e.preventDefault();
+		
+		const key = e.key.toLowerCase();
+		const currentMap = KEY_CONFIGS[config.laneCount];
+
+		// ゲーム未開始時の開始判定
+		if (!isPlaying) {
+			if (currentMap && currentMap[key] !== undefined) {
+				start();
+			} else if (key === ' ') {
+				start();
+			}
+		}
+
+		// 事実：現在のレーン数に対応したキーであれば判定処理を実行します
+		if (currentMap && currentMap[key] !== undefined) {
+			judge(currentMap[key]);
+		}
+	};
 
     document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
     document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
@@ -543,6 +613,19 @@ function update() {
     document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
     document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
     document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
+	document.getElementById('inp-lane').onchange = (e) => {
+    const newCount = parseInt(e.target.value);
+    config.laneCount = newCount;
+    
+    // 事実：レーン数に依存する配列を初期化し直します
+    activeTouchLanes = new Array(newCount).fill(false);
+    laneCountArray = new Array(newCount).fill(0);
+    lastLanes = [];
+    activeNotes = []; // 以前のレーン数のノーツを消去
+    combo = 0;
+    comboEl.innerText = "0";
+};
+	
 </script>
 </body>
 </html>
