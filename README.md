@@ -9,9 +9,7 @@ EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
 ### ゲームの詳細
 
-PERFECTは33msみたいです　厳しい (変わったかも)
-judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
-
+PERFECTは45msみたいです　厳しい 
 
 
 iPadでの操作を想定しているが、PCのDFJKキーでも操作できる　PCだと軽い
