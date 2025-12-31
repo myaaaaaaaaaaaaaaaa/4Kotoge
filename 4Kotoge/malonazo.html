@@ -413,23 +413,30 @@ const travelSpeed = config.speed * 0.0001;
 
 // 1. タッチ操作の制御（独立したイベント）
 	canvas.addEventListener('touchstart', (e) => {
-		e.preventDefault(); // iOSのダブル判定やスクロール、ズームを完全に阻止する事実
+		e.preventDefault(); 
 		if (!isPlaying) start();
 		const rect = canvas.getBoundingClientRect();
-		
-		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-		const offsetX = (width - laneFullW) / 2;
+		const judgeY = height * JUDGE_LINE_Y_RATIO;
 
 		for (let i = 0; i < e.changedTouches.length; i++) {
 			const touchX = e.changedTouches[i].clientX - rect.left;
-			const relativeX = touchX - offsetX;
-			const lane = Math.floor((relativeX / laneFullW) * 4);
 			
-			if (lane >= 0 && lane < 4) {
-				judge(lane);
+			// 判定ライン上における各レーンの端の座標を、描画関数と同じロジックで算出
+			// これにより、見た目と判定が 1:1 で一致する事実を確認
+			let detectedLane = -1;
+			for (let l = 0; l < 4; l++) {
+				const laneLeftX = getPerspectiveX(l * (width / 4), judgeY);
+				const laneRightX = getPerspectiveX((l + 1) * (width / 4), judgeY);
+				
+				if (touchX >= laneLeftX && touchX <= laneRightX) {
+					detectedLane = l;
+					break;
+				}
 			}
+			
+			if (detectedLane !== -1) judge(detectedLane);
 		}
-	}, {passive: false}); // preventDefaultを有効にするために必須
+	}, {passive: false});
 
     // 2. キーボード操作の制御（独立したイベント）
     window.onkeydown = (e) => {
