@@ -375,36 +375,73 @@ const travelSpeed = config.speed * 0.0001;
 
 	function judge(lane) {
 		const now = performance.now();
-		// 判定対象を「最も targetTime が古い（手前の）もの」から探す
-		let targetIdx = -1;
-		let minDiff = 500; // 判定許容範囲
-
-		for (let i = 0; i < activeNotes.length; i++) {
+		for (let i = activeNotes.length - 1; i >= 0; i--) {
 			const n = activeNotes[i];
 			if (n.lane === lane) {
 				const diff = Math.abs(now - (n.targetTime + config.offset));
-				if (diff < minDiff) {
-					minDiff = diff;
-					targetIdx = i;
+				if (diff < 200) {
+					// 判定成功時の処理を統合
+					activeNotes.splice(i, 1);
+					effects.push({ lane: lane, life: 1.0 }); // createHitEffectの代わり
+
+					const isPerf = diff < 45;
+					judgeEl.innerText = isPerf ? "PERFECT" : (diff < 90 ? "GREAT" : "GOOD");
+					judgeEl.style.color = isPerf ? "#0ff" : "#fff";
+					
+					judgeEl.classList.remove('judge-bounce');
+					void judgeEl.offsetWidth;
+					judgeEl.classList.add('judge-bounce');
+					
+					combo++;
+					comboEl.innerText = combo;
+					return; 
 				}
 			}
 		}
-
-		if (targetIdx !== -1) {
-			activeNotes.splice(targetIdx, 1);
-			effects.push({ lane, life: 1.0 });
-			const isPerf = minDiff < 45;
-			judgeEl.innerText = isPerf ? "PERFECT" : (minDiff < 90 ? "GREAT" : "GOOD");
-			judgeEl.style.color = isPerf ? "#0ff" : "#fff";
-			
-			judgeEl.classList.remove('judge-bounce');
-			void judgeEl.offsetWidth;
-			judgeEl.classList.add('judge-bounce');
-			
-			combo++;
-			comboEl.innerText = combo;
-		}
 	}
+
+
+
+function updateTouchLanes(e) {
+        const rect = canvas.getBoundingClientRect();
+        activeTouchLanes = [false, false, false, false];
+        for (let i = 0; i < e.touches.length; i++) {
+            const tX = e.touches[i].clientX - rect.left;
+            const tY = e.touches[i].clientY - rect.top;
+            for (let l = 0; l < 4; l++) {
+                if (tX >= getPerspectiveX(l, tY) && tX <= getPerspectiveX(l + 1, tY)) {
+                    activeTouchLanes[l] = true;
+                }
+            }
+        }
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!isPlaying) start();
+        const rect = canvas.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            const tx = t.clientX - rect.left;
+            const ty = t.clientY - rect.top;
+            for (let l = 0; l < 4; l++) {
+                if (tx >= getPerspectiveX(l, ty) - 5 && tx <= getPerspectiveX(l + 1, ty) + 5) {
+                    judge(l);
+                    break;
+                }
+            }
+        }
+        updateTouchLanes(e);
+    }, {passive: false});
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        updateTouchLanes(e);
+    }, {passive: false});
+
+    canvas.addEventListener('touchend', (e) => {
+        updateTouchLanes(e);
+    });
 
     function update() {
         if (!isPlaying) return;
@@ -420,99 +457,34 @@ const travelSpeed = config.speed * 0.0001;
         requestAnimationFrame(update);
     }
 
-    function start() {
-        if (isPlaying) return;
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        isPlaying = true; update();
-    }
-
-	// 1. タッチ操作の制御（独立したイベント）
-
-	// スクリプト内のタッチ系イベントを以下のように整理
-	function updateTouchLanes(e) {
-		const rect = canvas.getBoundingClientRect();
-		activeTouchLanes = [false, false, false, false];
-		for (let i = 0; i < e.touches.length; i++) {
-			const tX = e.touches[i].clientX - rect.left;
-			const tY = e.touches[i].clientY - rect.top;
-			for (let l = 0; l < 4; l++) {
-				if (tX >= getPerspectiveX(l, tY) && tX <= getPerspectiveX(l + 1, tY)) {
-					activeTouchLanes[l] = true;
-				}
-			}
-		}
-	}
-
-	canvas.addEventListener('touchstart', (e) => {
-		e.preventDefault();
-		if (!isPlaying) start();
-		updateTouchLanes(e); // 状態更新
-		
-		const rect = canvas.getBoundingClientRect();
-		for (let i = 0; i < e.changedTouches.length; i++) {
-			const touchX = e.changedTouches[i].clientX - rect.left;
-			const touchY = e.changedTouches[i].clientY - rect.top;
-			for (let l = 0; l < 4; l++) {
-				if (touchX >= getPerspectiveX(l, touchY) && touchX <= getPerspectiveX(l + 1, touchY)) {
-					judge(l);
-					break;
-				}
-			}
-		}
-	}, {passive: false});
-
-	canvas.addEventListener('touchmove', (e) => {
-		e.preventDefault();
-		updateTouchLanes(e); // 指が動いても発光を維持する事実
-	}, {passive: false});
-
-	canvas.addEventListener('touchend', (e) => {
-		updateTouchLanes(e); // 離した後に残っている指で再計算
-	});
-
-	canvas.addEventListener('touchend', () => { 
-		activeTouchLanes = [false, false, false, false]; 
-	});
-
-	// touchend で発光を止める
-	canvas.addEventListener('touchend', () => { activeTouchLanes = [false, false, false, false]; });
-
-	// render 関数内のエフェクト描画前に追加
-	activeTouchLanes.forEach((isActive, l) => {
-		if (isActive) {
-			ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
-			ctx.beginPath();
-			ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
-			ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
-			ctx.lineTo(getPerspectiveX(l + 1, height), height);
-			ctx.lineTo(getPerspectiveX(l, height), height);
-			ctx.fill();
-		}
-	});
-
     // 2. キーボード操作の制御（独立したイベント）
-    window.onkeydown = (e) => {
-        const key = e.key.toLowerCase();
-        // スペースキーまたはD,F,J,Kキーでゲームを開始
-        if (e.code === 'Space' || ['d', 'f', 'j', 'k'].includes(key)) {
-            if (!isPlaying) {
-                start();
-                if (e.code === 'Space') return; // スペースの場合は開始のみ
-            }
-        }
+	function start() {
+			if (isPlaying) return;
+			audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+			isPlaying = true; 
+			update();
+		}
 
-        // プレイ中の判定
-        const lane = {'d':0, 'f':1, 'j':2, 'k':3}[key];
-        if (lane !== undefined) judge(lane);
-    };
+		// キーボード操作の制御
+		window.onkeydown = (e) => {
+			const key = e.key.toLowerCase();
+			if (e.code === 'Space' || ['d', 'f', 'j', 'k'].includes(key)) {
+				if (!isPlaying) {
+					start();
+					if (e.code === 'Space') return;
+				}
+			}
+			const lane = {'d':0, 'f':1, 'j':2, 'k':3}[key];
+			if (lane !== undefined) judge(lane);
+		};
 
-    document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
-    document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
-    document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 8;
-    document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
-    document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
-    document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
+		// UI設定の反映
+		document.getElementById('inp-bpm').onchange = (e) => config.bpm = parseInt(e.target.value) || 120;
+		document.getElementById('inp-den').onchange = (e) => config.density = parseInt(e.target.value) || 1;
+		document.getElementById('inp-spd').onchange = (e) => config.speed = parseFloat(e.target.value) || 8;
+		document.getElementById('inp-off').onchange = (e) => config.offset = parseInt(e.target.value) || 0;
+		document.getElementById('inp-res').onchange = (e) => config.res = parseInt(e.target.value);
+		document.getElementById('inp-type').onchange = (e) => config.type = e.target.value;
 </script>
 </body>
 </html>
-
