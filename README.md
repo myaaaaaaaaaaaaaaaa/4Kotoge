@@ -46,7 +46,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 できた　判定の処理がおかしかった　奥行きを持たせるためにパース？計算してて、なんかそん時に判定ラインのロジックがぶっ壊れて最新のノーツを判定するようになってた　2つ流れてきたら上のやつを参照するから確定でMISSになるっていう
 大晦日に何やってんだマジで　こいつ2026年の初夢だったらもう最悪だよほんと
 
-↓
+↓　※ Safariだとまだ無反応がある　もうわかんないしブラウザでは動かさないのでいいや　DLして
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 
