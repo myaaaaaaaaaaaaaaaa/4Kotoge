@@ -42,19 +42,27 @@
 			z-index: 1;
 		}
 
-		#controls {
-			position: absolute;
-			top: 10px;
-			left: 10px;
-			z-index: 50;
-			background: rgba(0, 0, 0, 0.85);
-			padding: 10px;
-			border-radius: 6px;
-			font-size: 11px;
-			border: 1px solid #444;
-			opacity: 0.1;
-			transition: opacity 0.3s;
-		}
+	/* 55行目付近：#controls のスタイルを修正 */
+	#controls {
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		z-index: 50;
+		background: rgba(0, 0, 0, 0.85);
+		padding: 10px;
+		border-radius: 6px;
+		font-size: 11px;
+		border: 1px solid #444;
+		opacity: 0.2; /* 初期状態を少しだけ濃くする */
+		transition: opacity 0.5s ease; /* 消える時はゆっくりにする */
+	}
+
+	/* ホバー時、または中の入力項目にフォーカスがある時は明るさを維持 */
+	#controls:hover,
+	#controls:focus-within {
+		opacity: 1.0;
+		transition: opacity 0.1s ease; /* 明るくなる時は素早く */
+	}
 
 		#controls:hover {
 			opacity: 1.0;
@@ -350,29 +358,38 @@ const travelSpeed = config.speed * 0.0001;
         });
     }
 
-    function judge(lane) {
-        const now = performance.now();
-        for (let i = 0; i < activeNotes.length; i++) {
-            const n = activeNotes[i];
-            if (n.lane === lane) {
-                const diff = Math.abs(now - (n.targetTime + config.offset));
-                if (diff < 120) {
-                    activeNotes.splice(i, 1);
-                    effects.push({ lane, life: 1.0 });
-                    const isPerf = diff < 35;
-                    judgeEl.innerText = isPerf ? "PERFECT" : (diff < 70 ? "GREAT" : "GOOD");
-                    judgeEl.style.color = isPerf ? "#0ff" : "#fff";
-					
-					judgeEl.classList.remove('judge-bounce');
-                    void judgeEl.offsetWidth; // DOMリフローを発生させてアニメーションを再トリガー
-                    judgeEl.classList.add('judge-bounce');
-					
-                    combo++; comboEl.innerText = combo;
-                    break;
-                }
-            }
-        }
-    }
+	function judge(lane) {
+		const now = performance.now();
+		// 判定対象を「最も targetTime が古い（手前の）もの」から探す
+		let targetIdx = -1;
+		let minDiff = 150; // 判定許容範囲
+
+		for (let i = 0; i < activeNotes.length; i++) {
+			const n = activeNotes[i];
+			if (n.lane === lane) {
+				const diff = Math.abs(now - (n.targetTime + config.offset));
+				if (diff < minDiff) {
+					minDiff = diff;
+					targetIdx = i;
+				}
+			}
+		}
+
+		if (targetIdx !== -1) {
+			activeNotes.splice(targetIdx, 1);
+			effects.push({ lane, life: 1.0 });
+			const isPerf = minDiff < 45;
+			judgeEl.innerText = isPerf ? "PERFECT" : (minDiff < 90 ? "GREAT" : "GOOD");
+			judgeEl.style.color = isPerf ? "#0ff" : "#fff";
+			
+			judgeEl.classList.remove('judge-bounce');
+			void judgeEl.offsetWidth;
+			judgeEl.classList.add('judge-bounce');
+			
+			combo++;
+			comboEl.innerText = combo;
+		}
+	}
 
     function update() {
         if (!isPlaying) return;
@@ -395,24 +412,24 @@ const travelSpeed = config.speed * 0.0001;
     }
 
 // 1. タッチ操作の制御（独立したイベント）
-    canvas.addEventListener('touchstart', (e) => {
-        if (!isPlaying) start();
-        const rect = canvas.getBoundingClientRect();
-        
-        // 見た目のレーン幅と、左側の余白を計算
-        const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-        const offsetX = (width - laneFullW) / 2;
+	canvas.addEventListener('touchstart', (e) => {
+		e.preventDefault(); // iOSのダブル判定やスクロール、ズームを完全に阻止する事実
+		if (!isPlaying) start();
+		const rect = canvas.getBoundingClientRect();
+		
+		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+		const offsetX = (width - laneFullW) / 2;
 
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const touchX = e.changedTouches[i].clientX - rect.left;
-            
-            // タップした位置から余白を引き、制限された幅の中で判定
-            const relativeX = touchX - offsetX;
-            const lane = Math.floor((relativeX / laneFullW) * 4);
-            
-            if (lane >= 0 && lane < 4) judge(lane);
-        }
-    }, {passive: false});
+		for (let i = 0; i < e.changedTouches.length; i++) {
+			const touchX = e.changedTouches[i].clientX - rect.left;
+			const relativeX = touchX - offsetX;
+			const lane = Math.floor((relativeX / laneFullW) * 4);
+			
+			if (lane >= 0 && lane < 4) {
+				judge(lane);
+			}
+		}
+	}, {passive: false}); // preventDefaultを有効にするために必須
 
     // 2. キーボード操作の制御（独立したイベント）
     window.onkeydown = (e) => {
