@@ -152,6 +152,8 @@
     const judgeEl = document.getElementById('judge-text');
     let audioCtx;
 
+	let activeTouchLanes = [false, false, false, false];
+
 	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
 	
 	const MAX_LANE_WIDTH = 1300; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
@@ -195,69 +197,79 @@
         return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-safeZ * 0.5);
     }
 	
-	function getPerspectiveX(xRaw, y) {
+	// 108行目付近：座標計算をシンプルかつ厳密に修正
+	function getPerspectiveX(laneIdx, y) {
 		const judgeY = height * JUDGE_LINE_Y_RATIO;
 		const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
 		const centerX = width / 2;
 		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-
-		// 0〜width の入力を、centerX を中心とした laneFullW の範囲に正確にマッピングする事実
-		const relativeX = (xRaw - width / 2) * (laneFullW / width);
+		
+		// laneIdx (0〜4) を基準に計算する事実
+		const unitW = laneFullW / 4;
+		const relativeX = (laneIdx - 2) * unitW; 
+		
 		return centerX + relativeX * scale;
 	}
 
-    function drawNote(lane, z, isBlue) {
-        const yBase = zToY(z);
-        const yTop = zToY(z + 0.05);
-        const laneW = width / 4;
-        const xCenterRaw = (lane + 0.5) * laneW;
-        const wRaw = laneW * 0.94;
-        const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
+	// 120行目付近：drawNoteを新しい座標計算に合わせる
+	function drawNote(lane, z, isBlue) {
+		const yBase = zToY(z);
+		const yTop = zToY(z + 0.05);
+		const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
 
-        const xLb = getPerspectiveX(xCenterRaw - wRaw / 2, yBase);
-        const xRb = getPerspectiveX(xCenterRaw + wRaw / 2, yBase);
-        const xLt = getPerspectiveX(xCenterRaw - wRaw / 2, yTop);
-        const xRt = getPerspectiveX(xCenterRaw + wRaw / 2, yTop);
+		// laneIdx（左端）と laneIdx + 1（右端）を渡す事実
+		const xLb = getPerspectiveX(lane + 0.03, yBase);
+		const xRb = getPerspectiveX(lane + 0.97, yBase);
+		const xLt = getPerspectiveX(lane + 0.03, yTop);
+		const xRt = getPerspectiveX(lane + 0.97, yTop);
 
-        ctx.beginPath();
-        ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
-        ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
-        ctx.closePath();
+		ctx.beginPath();
+		ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
+		ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
+		ctx.closePath();
+		ctx.fillStyle = isBlue ? "#ffffff" : style.main;
+		ctx.fill();
+	}
 
-        ctx.fillStyle = isBlue ? "#ffffff" : style.main;
-        ctx.fill();
-        ctx.strokeStyle = style.border;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-    }
+	// 147行目付近：render内のレーンセパレーターと判定枠も同期
+	// セパレーター
+	function render(now) {
+		ctx.fillStyle = "#030305";
+		ctx.fillRect(0, 0, width, height);
+		const judgeY = height * JUDGE_LINE_Y_RATIO;
 
-    function render(now) {
-        ctx.fillStyle = "#030305";
-        ctx.fillRect(0, 0, width, height);
-        const judgeY = height * JUDGE_LINE_Y_RATIO;
+		// 【デバッグ発光】activeTouchLanes が true のレーンを塗りつぶす事実
+		activeTouchLanes.forEach((isActive, l) => {
+			if (isActive) {
+				ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
+				ctx.beginPath();
+				ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
+				ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
+				ctx.lineTo(getPerspectiveX(l + 1, height), height);
+				ctx.lineTo(getPerspectiveX(l, height), height);
+				ctx.fill();
+			}
+		});
 
-// レーンセパレーター
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 4; i++) {
-            // z=5.0 程度の位置を開始点にすることで、頂点の重なりを物理的に見えなくします
-            const yStart = zToY(5.0);
-            const xTop = getPerspectiveX(i * (width / 4), yStart);
-            const xBottom = getPerspectiveX(i * (width / 4), height);
-            
-            ctx.beginPath();
-            ctx.moveTo(xTop, yStart);
-            ctx.lineTo(xBottom, height);
-            ctx.stroke();
-        }
-
-        // 判定枠の描画（多層フレーム）
-        for (let i = 0; i < 4; i++) {
-            const xL = getPerspectiveX(i * (width / 4), judgeY);
-            const xR = getPerspectiveX((i + 1) * (width / 4), judgeY);
-            ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
-            ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
-        }
+		// レーンセパレーター（i * (width/4) を getPerspectiveX(i, ...) に差し替え）
+		ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
+		ctx.lineWidth = 1;
+		for (let i = 0; i <= 4; i++) {
+			const yStart = zToY(5.0);
+			ctx.beginPath();
+			ctx.moveTo(getPerspectiveX(i, yStart), yStart);
+			ctx.lineTo(getPerspectiveX(i, height), height);
+			ctx.stroke();
+		}
+		
+		// 判定枠も同様に差し替え
+		for (let i = 0; i < 4; i++) {
+			const xL = getPerspectiveX(i, judgeY);
+			const xR = getPerspectiveX(i + 1, judgeY);
+			ctx.strokeStyle = "rgba(0, 255, 255, 0.4)";
+			ctx.strokeRect(xL + 2, judgeY - 15, (xR - xL) - 4, 30);
+		}
+		
         ctx.strokeStyle = "#0ff";
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -266,15 +278,19 @@
         ctx.stroke();
 
         // エフェクト
-        for (let i = effects.length - 1; i >= 0; i--) {
-            const e = effects[i];
-            ctx.fillStyle = `rgba(0, 255, 255, ${e.life * 0.35})`;
-            const xL = getPerspectiveX(e.lane * (width / 4), judgeY);
-            const xR = getPerspectiveX((e.lane + 1) * (width / 4), judgeY);
-            ctx.fillRect(xL, judgeY - 45, xR - xL, 45);
-            e.life -= 0.1;
-            if (e.life <= 0) effects.splice(i, 1);
-        }
+	// render 関数内のエフェクト描画箇所を以下に差し替え
+	for (let i = effects.length - 1; i >= 0; i--) {
+		const e = effects[i];
+		// 判定ラインの高さ（judgeY）に基づいて描画する事実
+		const xL = getPerspectiveX(e.lane, judgeY);
+		const xR = getPerspectiveX(e.lane + 1, judgeY);
+		
+		ctx.fillStyle = `rgba(0, 255, 255, ${e.life * 0.5})`; // 視認性を上げます
+		ctx.fillRect(xL, judgeY - 60, xR - xL, 60); // 矩形の高さを少し強調
+		
+		e.life -= 0.08; // 少しゆっくり消えるように調整
+		if (e.life <= 0) effects.splice(i, 1);
+	}
 
 const travelSpeed = config.speed * 0.0001;
         for (let i = activeNotes.length - 1; i >= 0; i--) {
@@ -410,31 +426,69 @@ const travelSpeed = config.speed * 0.0001;
         isPlaying = true; update();
     }
 
-// 1. タッチ操作の制御（独立したイベント）
+	// 1. タッチ操作の制御（独立したイベント）
+
+	// スクリプト内のタッチ系イベントを以下のように整理
+	function updateTouchLanes(e) {
+		const rect = canvas.getBoundingClientRect();
+		activeTouchLanes = [false, false, false, false];
+		for (let i = 0; i < e.touches.length; i++) {
+			const tX = e.touches[i].clientX - rect.left;
+			const tY = e.touches[i].clientY - rect.top;
+			for (let l = 0; l < 4; l++) {
+				if (tX >= getPerspectiveX(l, tY) && tX <= getPerspectiveX(l + 1, tY)) {
+					activeTouchLanes[l] = true;
+				}
+			}
+		}
+	}
+
 	canvas.addEventListener('touchstart', (e) => {
 		e.preventDefault();
 		if (!isPlaying) start();
+		updateTouchLanes(e); // 状態更新
+		
 		const rect = canvas.getBoundingClientRect();
-
 		for (let i = 0; i < e.changedTouches.length; i++) {
 			const touchX = e.changedTouches[i].clientX - rect.left;
-			const touchY = e.changedTouches[i].clientY - rect.top; 
-			
-			let detectedLane = -1;
-			// ループの境界値を 0.01px 単位で厳密に評価する事実
+			const touchY = e.changedTouches[i].clientY - rect.top;
 			for (let l = 0; l < 4; l++) {
-				const leftEdge = getPerspectiveX(l * (width / 4), touchY);
-				const rightEdge = getPerspectiveX((l + 1) * (width / 4), touchY);
-				
-				if (touchX >= leftEdge && touchX < rightEdge + 1) { // 右端に1pxの余裕を持たせる
-					detectedLane = l;
+				if (touchX >= getPerspectiveX(l, touchY) && touchX <= getPerspectiveX(l + 1, touchY)) {
+					judge(l);
 					break;
 				}
 			}
-			
-			if (detectedLane !== -1) judge(detectedLane);
 		}
 	}, {passive: false});
+
+	canvas.addEventListener('touchmove', (e) => {
+		e.preventDefault();
+		updateTouchLanes(e); // 指が動いても発光を維持する事実
+	}, {passive: false});
+
+	canvas.addEventListener('touchend', (e) => {
+		updateTouchLanes(e); // 離した後に残っている指で再計算
+	});
+
+	canvas.addEventListener('touchend', () => { 
+		activeTouchLanes = [false, false, false, false]; 
+	});
+
+	// touchend で発光を止める
+	canvas.addEventListener('touchend', () => { activeTouchLanes = [false, false, false, false]; });
+
+	// render 関数内のエフェクト描画前に追加
+	activeTouchLanes.forEach((isActive, l) => {
+		if (isActive) {
+			ctx.fillStyle = "rgba(0, 255, 255, 0.15)";
+			ctx.beginPath();
+			ctx.moveTo(getPerspectiveX(l, VANISHING_Y), VANISHING_Y);
+			ctx.lineTo(getPerspectiveX(l + 1, VANISHING_Y), VANISHING_Y);
+			ctx.lineTo(getPerspectiveX(l + 1, height), height);
+			ctx.lineTo(getPerspectiveX(l, height), height);
+			ctx.fill();
+		}
+	});
 
     // 2. キーボード操作の制御（独立したイベント）
     window.onkeydown = (e) => {
