@@ -106,7 +106,7 @@
 		}
 
 		@keyframes bounce {
-			0% { transform: scale(1.0); }
+			0% { transform: scale(1.08); }
 			100% { transform: scale(1.0); }
 		}
 	</style>
@@ -145,7 +145,7 @@
     let audioCtx;
 
 	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream' };
-	const MAX_LANE_WIDTH = 1100; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
+	const MAX_LANE_WIDTH = 1300; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
 
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
     let laneCountArray = [0, 0, 0, 0]; 
@@ -216,7 +216,7 @@
         ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
         ctx.closePath();
 
-        ctx.fillStyle = isBlue ? "#1a1a1a" : style.main;
+        ctx.fillStyle = isBlue ? "#ffffff" : style.main;
         ctx.fill();
         ctx.strokeStyle = style.border;
         ctx.lineWidth = 1;
@@ -423,7 +423,3 @@
 </script>
 </body>
 </html>
-
-
-
-
