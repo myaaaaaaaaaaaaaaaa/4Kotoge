@@ -413,22 +413,21 @@ const travelSpeed = config.speed * 0.0001;
 
 // 1. タッチ操作の制御（独立したイベント）
 	canvas.addEventListener('touchstart', (e) => {
-		e.preventDefault(); 
+		e.preventDefault();
 		if (!isPlaying) start();
 		const rect = canvas.getBoundingClientRect();
-		const judgeY = height * JUDGE_LINE_Y_RATIO;
 
 		for (let i = 0; i < e.changedTouches.length; i++) {
 			const touchX = e.changedTouches[i].clientX - rect.left;
+			const touchY = e.changedTouches[i].clientY - rect.top; // 叩いた高さを取得
 			
-			// 判定ライン上における各レーンの端の座標を、描画関数と同じロジックで算出
-			// これにより、見た目と判定が 1:1 で一致する事実を確認
 			let detectedLane = -1;
+			// 叩いた「その高さ（touchY）」における各レーンの左右の端を計算する事実
 			for (let l = 0; l < 4; l++) {
-				const laneLeftX = getPerspectiveX(l * (width / 4), judgeY);
-				const laneRightX = getPerspectiveX((l + 1) * (width / 4), judgeY);
+				const leftEdge = getPerspectiveX(l * (width / 4), touchY);
+				const rightEdge = getPerspectiveX((l + 1) * (width / 4), touchY);
 				
-				if (touchX >= laneLeftX && touchX <= laneRightX) {
+				if (touchX >= leftEdge && touchX <= rightEdge) {
 					detectedLane = l;
 					break;
 				}
