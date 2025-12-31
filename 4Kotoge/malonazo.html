@@ -194,16 +194,15 @@
         const safeZ = Math.max(0, z);
         return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-safeZ * 0.5);
     }
-	// 108行目付近
+	
 	function getPerspectiveX(xRaw, y) {
 		const judgeY = height * JUDGE_LINE_Y_RATIO;
-		// 修正：分母が0にならないよう、かつ消失点(VANISHING_Y)を基準に正しく比率を出す
 		const scale = Math.max(0, (y - VANISHING_Y) / (judgeY - VANISHING_Y));
 		const centerX = width / 2;
-
 		const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-		const relativeX = (xRaw / width - 0.5) * laneFullW;
 
+		// 0〜width の入力を、centerX を中心とした laneFullW の範囲に正確にマッピングする事実
+		const relativeX = (xRaw - width / 2) * (laneFullW / width);
 		return centerX + relativeX * scale;
 	}
 
@@ -419,15 +418,15 @@ const travelSpeed = config.speed * 0.0001;
 
 		for (let i = 0; i < e.changedTouches.length; i++) {
 			const touchX = e.changedTouches[i].clientX - rect.left;
-			const touchY = e.changedTouches[i].clientY - rect.top; // 叩いた高さを取得
+			const touchY = e.changedTouches[i].clientY - rect.top; 
 			
 			let detectedLane = -1;
-			// 叩いた「その高さ（touchY）」における各レーンの左右の端を計算する事実
+			// ループの境界値を 0.01px 単位で厳密に評価する事実
 			for (let l = 0; l < 4; l++) {
 				const leftEdge = getPerspectiveX(l * (width / 4), touchY);
 				const rightEdge = getPerspectiveX((l + 1) * (width / 4), touchY);
 				
-				if (touchX >= leftEdge && touchX <= rightEdge) {
+				if (touchX >= leftEdge && touchX < rightEdge + 1) { // 右端に1pxの余裕を持たせる
 					detectedLane = l;
 					break;
 				}
