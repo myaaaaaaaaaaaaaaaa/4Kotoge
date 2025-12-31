@@ -5,11 +5,11 @@ EatKanoが面白かったのでローカルで実行可能なhtml(js)ゲーム�
 
 EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
-製作日数合計：3日くらい
+製作日数合計：5日くらい
 
 ### ゲームの詳細
 
-PERFECTは45msみたいです　厳しい 
+PERFECTは45msみたいです　やさしい
 
 
 iPadでの操作を想定しているが、PCのDFJKキーでも操作できる　PCだと軽い
@@ -21,6 +21,9 @@ Googleや特にSafariだとダブルタップで拡大されちゃうかも　�
 -----
 ### ベータ版
 
+2代目　DOM処理とローカルのmp3から音を出すのをやめたもの　だと思う　普通に面白い
+
+https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/index_mobile.html
 
 これが基礎
 
