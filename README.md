@@ -48,6 +48,11 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
 ↓　※ Safariだとまだ無反応がある　もうわかんないしブラウザでは動かさないのでいいや　DLして  Autoだとミスがないのでダブルタップとかの問題だと思います知らんけど
 
+
+密度を増やしたり極端に速くすると動作が重くなる（特に音が遅れる）
+
+Autoだと密度が増えても動作が重くなってないのでレーンエフェクトも原因かもしれない（Autoはレーンエフェクト光らない）
+
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 
 -----
