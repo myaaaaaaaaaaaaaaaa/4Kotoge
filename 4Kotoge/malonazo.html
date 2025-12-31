@@ -145,7 +145,8 @@
     let audioCtx;
 
 	let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream' };
-	const MAX_LANE_WIDTH = 600; // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
+	// 画面幅が600pxより大きければ600pxに固定、小さければ画面幅(width)に合わせる
+	const MAX_LANE_WIDTH = Math.min(600, window.innerWidth); // iPadでレーンが広がりすぎるのを防ぐための最大幅(px)
 
     let isPlaying = false, activeNotes = [], effects = [], combo = 0, subStep = 0, lastLanes = [];
     let laneCountArray = [0, 0, 0, 0]; 
@@ -423,3 +424,4 @@
 </script>
 </body>
 </html>
+
