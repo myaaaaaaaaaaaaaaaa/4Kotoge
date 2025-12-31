@@ -9,7 +9,7 @@ EatKano → https://github.com/arcxingye/EatKano?tab=readme-ov-file
 
 ### ゲームの詳細
 
-PERFECTは33msみたいです　厳しい 
+PERFECTは33msみたいです　厳しい (変わったかも)
 judgeEl.innerText = diff < 33 ? "PERFECT" : (diff < 66 ? "GREAT" : "GOOD");
 
 
@@ -33,6 +33,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
 好きな見た目に寄せるために奮闘
+Edgeでは無反応が多発するため動かない　ローカルで
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 
