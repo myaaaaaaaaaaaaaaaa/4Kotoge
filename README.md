@@ -21,15 +21,15 @@ Googleや特にSafariだとダブルタップで拡大されちゃうかも　�
 -----
 ### ベータ版
 
-①2代目　DOM処理とローカルのmp3から音を出すもの　だと思う　普通に面白い（重いけど）
+①2代目　DOM処理+ローカルのmp3から音を出すもの　だと思う　普通に面白い（重いけど）
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/index_mobile.html
 
-②これが基礎　Canvasに切り替えて音もWeb APIにした 軽量化のためいったんスコアも廃止　完全な練習モード
+②これが基礎　Canvasに切り替えて音もWeb APIにした 軽量化のためいったんスコアも廃止 ノーツタイプももう追加されている　こだわり　完全な練習モード
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 
-③こっちは自動でおすすめの設定にしてくれるもののベータ版
+③こっちは自動でおすすめの設定にしてくれるもののベータ版　アイデアは良かったと思う
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
@@ -52,7 +52,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 -----
 
 ### 今後
-~~5K~10Kまで作れるかも　と今思った　モード別の処理分け大変そう~~
+~~5K~10Kまで作れるかも　と今思った　モード別の処理分け大変そう~~←できた
 
 せっかくだしスコアも出せるようにしたいけど重くなりそう　こっちは無理かも　canvasでどの程度軽くなったのかがよくわかんない
 
