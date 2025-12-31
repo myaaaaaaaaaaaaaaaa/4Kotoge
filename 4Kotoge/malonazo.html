@@ -152,6 +152,10 @@
     const judgeEl = document.getElementById('judge-text');
     let audioCtx;
 
+	let isAuto = false; // 事実：これを true にするとオートプレイになります
+    let debugLog = []; // 最新の判定結果を保持する配列
+
+
     let activeTouchLanes = [false, false, false, false];
     let config = { bpm: 120, offset: 120, speed: 12, density: 1, res: 4, type: 'stream', trackLen: 1000 };
     const MAX_LANE_WIDTH = 900;
@@ -184,10 +188,11 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     }
 
-    function zToY(z) {
+	function zToY(z) {
         const judgeY = height * JUDGE_LINE_Y_RATIO;
-        const safeZ = Math.max(0, z);
-        return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-safeZ * 0.5);
+        // 事実：z=0 のときに y がちょうど judgeY になるようにします
+        // Math.exp(0) = 1 なので、そのまま引き算で成立させます
+        return VANISHING_Y + (judgeY - VANISHING_Y) * Math.exp(-z * 0.5);
     }
 
     function getPerspectiveX(laneIdx, y) {
@@ -200,14 +205,17 @@
         return centerX + relativeX * scale;
     }
 
-    function drawNote(lane, z, isBlue) {
-        const yBase = zToY(z);
-        const yTop = zToY(z + 0.15);
+	function drawNote(lane, z, isBlue) {
+        // z を中心にして、前後に 0.075 ずつ厚みを持たせます
+        const yBase = zToY(z - 0.075);
+        const yTop = zToY(z + 0.075);
+        
         const style = (lane === 0 || lane === 3) ? STYLE_14 : STYLE_23;
         const xLb = getPerspectiveX(lane + 0.03, yBase);
         const xRb = getPerspectiveX(lane + 0.97, yBase);
         const xLt = getPerspectiveX(lane + 0.03, yTop);
         const xRt = getPerspectiveX(lane + 0.97, yTop);
+        
         ctx.beginPath();
         ctx.moveTo(xLb, yBase); ctx.lineTo(xRb, yBase);
         ctx.lineTo(xRt, yTop); ctx.lineTo(xLt, yTop);
@@ -279,12 +287,13 @@
                 judgeEl.style.color = "#f04";
                 continue;
             }
-            const z = timeDiff * travelSpeed * 5; 
+            // 事実：判定基準時刻に z がちょうど 0 になるように計算式を統一します
+			const z = ( (n.targetTime + config.offset) - now ) * travelSpeed * 5; 
             if (z < 6.0 && z > -0.5) drawNote(n.lane, z, n.isBlue);
         }
     }
 
-    function spawnPattern(spawnTime, currentStep) {
+function spawnPattern(spawnTime, currentStep) {
         let total = Math.min(config.density, Math.floor(Math.random() * config.density) + 1);
         let selected = [];
         const leftLanes = [0, 1], rightLanes = [2, 3];
@@ -323,62 +332,93 @@
         laneCountArray = laneCountArray.map((count, idx) => selected.includes(idx) ? count + 1 : 0);
         lastLanes = [...selected];
 
-        const arrivalDelay = 2000;
-        const stepsToTravel = Math.round(arrivalDelay / (60000 / config.bpm / config.res));
+        const stepMS = 60000 / config.bpm / config.res;
+        const stepsToTravel = Math.round(2000 / stepMS);
+        const arrivalDelay = stepMS * stepsToTravel;
+        
         const isArrivalDownBeat = (currentStep + stepsToTravel) % (config.res * 4) === 0;
 
+        // 事実：forEach と 関数の閉じカッコを正しく配置しました
         selected.forEach(laneIdx => {
-            activeNotes.push({ lane: laneIdx, targetTime: spawnTime + arrivalDelay, isBlue: isArrivalDownBeat });
+            activeNotes.push({ 
+                lane: laneIdx, 
+                targetTime: spawnTime + arrivalDelay, 
+                isBlue: isArrivalDownBeat 
+            });
         });
     }
 
-    function judge(lane) {
+	function judge(lane) {
         const now = performance.now();
-        for (let i = activeNotes.length - 1; i >= 0; i--) {
-            const n = activeNotes[i];
-            if (n.lane === lane) {
-                const diff = Math.abs(now - (n.targetTime + config.offset));
-                if (diff < 200) {
-                    activeNotes.splice(i, 1);
-                    effects.push({ lane: lane, life: 1.0 });
-                    const isPerf = diff < 45;
-                    judgeEl.innerText = isPerf ? "PERFECT" : (diff < 90 ? "GREAT" : "GOOD");
-                    judgeEl.style.color = isPerf ? "#0ff" : "#fff";
-                    judgeEl.classList.remove('judge-bounce');
-                    void judgeEl.offsetWidth;
-                    judgeEl.classList.add('judge-bounce');
-                    combo++;
-                    comboEl.innerText = combo;
-                    return; 
-                }
-            }
+        // 事実：filter でそのレーンのノーツだけを抽出し、targetTime 順（古い順）にソートします
+        const laneNotes = activeNotes
+            .filter(n => n.lane === lane)
+            .sort((a, b) => a.targetTime - b.targetTime);
+
+        if (laneNotes.length === 0) return;
+
+        // 一番手前（targetTime が最小）のノーツを対象にする
+        const n = laneNotes[0];
+        const target = n.targetTime + config.offset;
+        const diff = now - target;
+        const absDiff = Math.abs(diff);
+
+        // 判定幅（200ms）を超えている場合は、そのノーツは無視（まだ遠すぎる）
+        if (absDiff > 200) return;
+
+        // 事実：実際に判定されたノーツを activeNotes から削除します
+        const originalIndex = activeNotes.indexOf(n);
+        if (originalIndex !== -1) {
+            activeNotes.splice(originalIndex, 1);
         }
+
+        // デバッグログ更新
+        debugLog.unshift({ lane, diff: diff.toFixed(2), time: now });
+        if (debugLog.length > 5) debugLog.pop();
+
+        // 演出処理
+        effects.push({ lane: lane, life: 1.0 });
+        const isPerf = absDiff < 45;
+        judgeEl.innerText = isPerf ? "PERFECT" : (absDiff < 90 ? "GREAT" : "GOOD");
+        judgeEl.style.color = isPerf ? "#0ff" : "#fff";
+        
+        judgeEl.classList.remove('judge-bounce');
+        void judgeEl.offsetWidth;
+        judgeEl.classList.add('judge-bounce');
+        
+        combo++;
+        comboEl.innerText = combo;
     }
 
-    function updateTouchLanes(e) {
+	function updateTouchLanes(e) {
         const rect = canvas.getBoundingClientRect();
         activeTouchLanes = [false, false, false, false];
         for (let i = 0; i < e.touches.length; i++) {
             const tX = e.touches[i].clientX - rect.left;
             const tY = e.touches[i].clientY - rect.top;
-            for (let l = 0; l < 4; l++) {
-                if (tX >= getPerspectiveX(l, tY) && tX <= getPerspectiveX(l + 1, tY)) {
-                    activeTouchLanes[l] = true;
+            
+            // 事実：新関数を使い、見た目と光る場所を完全に一致させます
+            const l = getLaneFromCoords(tX, tY);
+            if (l !== -1) activeTouchLanes[l] = true;
+        }
+    }
+	
+	
+function update() {
+        if (!isPlaying) return;
+        const now = performance.now();
+        
+        // オートプレイが有効な時だけ計算を回す
+        if (isAuto) {
+            for (let i = activeNotes.length - 1; i >= 0; i--) {
+                const n = activeNotes[i];
+                // あなたの環境に最適化した「-8ms」の閾値を維持
+                if (now >= (n.targetTime + config.offset - 8)) {
+                    judge(n.lane);
                 }
             }
         }
-    }
 
-    function start() {
-        if (isPlaying) return;
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        isPlaying = true; 
-        update();
-    }
-
-    function update() {
-        if (!isPlaying) return;
-        const now = performance.now();
         const stepInterval = (60000 / config.bpm) / config.res;
         if (now - lastStepTime > stepInterval) {
             if (subStep % config.res === 0) playTick((subStep / config.res) % 4 === 0);
@@ -387,29 +427,92 @@
             subStep++;
         }
         render(now);
+        
+        // 事実：可視化用のマーカーを描画します
+        drawVisualDebug(now); 
+        
         requestAnimationFrame(update);
     }
 
+    function drawVisualDebug(now) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.font = "14px monospace";
+        
+        // 左上に現在の精密な時間を表示
+        ctx.fillText(`System Time: ${now.toFixed(2)}`, 10, 150);
+
+        debugLog.forEach((log, idx) => {
+            // 直近の判定結果と、その時のズレを大きく表示
+            ctx.fillStyle = Math.abs(log.diff) < 20 ? "#0ff" : "#f04";
+            ctx.fillText(`Last Hit Lane ${log.lane}: ${log.diff}ms`, 10, 180 + (idx * 20));
+        });
+
+        // 判定線に「理想の0ms」を強調表示
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
+        ctx.strokeStyle = "#f0f"; // マゼンタ色の細い線
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, judgeY);
+        ctx.lineTo(width, judgeY);
+        ctx.stroke();
+    }
+	
+	function drawDebugInfo() {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.font = "12px monospace";
+        ctx.textAlign = "left";
+        ctx.fillText(`AutoPlay: ${isAuto ? "ON" : "OFF"}`, 10, height - 100);
+        
+        debugLog.forEach((log, idx) => {
+            // 事実：diff が + なら遅延、 - なら早押しです。オートなら 0 に近いはずです。
+            ctx.fillText(`Lane ${log.lane} | Diff: ${log.diff}ms`, 10, height - 80 + (idx * 15));
+        });
+    }
+	
+
+    function start() {
+        if (isPlaying) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        isPlaying = true; 
+        update();
+    }
+
+
+
+// 事実：高さ（ty）に応じて変化する台形の幅からレーン番号を導き出します
+    function getLaneFromCoords(tx, ty) {
+        const judgeY = height * JUDGE_LINE_Y_RATIO;
+        const scale = Math.max(0, (ty - VANISHING_Y) / (judgeY - VANISHING_Y));
+        const centerX = width / 2;
+        const laneFullW = Math.min(width, MAX_LANE_WIDTH);
+        
+        const currentFullW = laneFullW * scale;
+        const leftEdge = centerX - currentFullW / 2;
+        
+        const relativePos = (tx - leftEdge) / currentFullW;
+        const l = Math.floor(relativePos * 4);
+        
+        return (l >= 0 && l < 4) ? l : -1;
+    }
+
+
+
+
+
 	canvas.addEventListener('touchstart', (e) => {
-			e.preventDefault();
+			if (e.cancelable) e.preventDefault();
 			if (!isPlaying) start();
 			
 			const rect = canvas.getBoundingClientRect();
-			const laneFullW = Math.min(width, MAX_LANE_WIDTH);
-			const centerX = width / 2;
-			const laneStart = centerX - laneFullW / 2;
 
 			for (let i = 0; i < e.changedTouches.length; i++) {
 				const t = e.changedTouches[i];
 				const tx = t.clientX - rect.left;
+				const ty = t.clientY - rect.top;
 				
-				// パースに依存せず、叩いた横位置（tx）だけでレーンを特定する事実
-				// 判定ライン付近（画面下部）での「空振り」を防ぎます
-				const relativeX = tx - laneStart;
-				const laneWidth = laneFullW / 4;
-				const l = Math.floor(relativeX / laneWidth);
-
-				if (l >= 0 && l < 4) {
+				// 事実：高さ（ty）を考慮した判定を行い、空振りを防ぎます
+				const l = getLaneFromCoords(tx, ty);
+				if (l !== -1) {
 					judge(l);
 				}
 			}
