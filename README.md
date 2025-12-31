@@ -30,6 +30,9 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/nazo.html
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
+
+
+～～
 好きな見た目に寄せるために奮闘（12時間かかったほんとに疲れたでもできてよかった）
 ・最近の音ゲーみたいな奥行きを再現
 ・4K以上も作った
