@@ -51,7 +51,7 @@ https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/auto.html
 
 密度を増やしたり極端に速くすると動作が重くなる（特に音が遅れる）
 
-Autoだと密度が増えても動作が重くなってないのでレーンエフェクトも原因かもしれない（Autoはレーンエフェクト光らない）
+Autoだと密度が増えても動作が重くなってないのでレーンエフェクトも原因かもしれない（Autoはレーンエフェクト光らない）←今それ起きないんだけど
 
 https://myaaaaaaaaaaaaaaaa.github.io/4Kotoge/4Kotoge/malonazo.html
 
